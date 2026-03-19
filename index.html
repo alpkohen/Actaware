@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ActAware — UK Employer Compliance Intelligence</title>
+  <meta name="description" content="Beyond compliance. ActAware translates UK employment law into plain-English action plans — sourced from 12 official UK bodies, delivered every week.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #0B1829;
+      --navy-mid: #162338;
+      --navy-light: #1e3051;
+      --gold: #C9922A;
+      --gold-light: #f5e6cc;
+      --green: #1D9E75;
+      --green-light: #e8f7f2;
+      --white: #ffffff;
+      --off-white: #F8F7F4;
+      --border: #E8E5DF;
+      --text: #1C1C1C;
+      --text-mid: #4A4A4A;
+      --text-muted: #8A8A8A;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--white);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--navy);
+      padding: 0 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--white);
+      letter-spacing: -0.3px;
+    }
+    .logo span { color: var(--gold); }
+    nav a {
+      color: rgba(255,255,255,0.55);
+      font-size: 14px;
+      text-decoration: none;
+      margin-left: 28px;
+      transition: color 0.2s;
+    }
+    nav a:hover { color: var(--white); }
+    nav a.nav-cta {
+      background: var(--gold);
+      color: var(--navy);
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-weight: 600;
+      color: var(--navy);
+    }
+    nav a.nav-cta:hover { opacity: 0.9; }
+
+    /* ── HERO ── */
+    .hero {
+      background: var(--navy);
+      padding: 96px 40px 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -120px; left: 50%; transform: translateX(-50%);
+      width: 700px; height: 700px;
+      background: radial-gradient(ellipse, rgba(201,146,42,0.10) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      display: inline-block;
+      background: rgba(201,146,42,0.15);
+      color: var(--gold);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      border-radius: 100px;
+      margin-bottom: 32px;
+      border: 1px solid rgba(201,146,42,0.3);
+    }
+    .hero h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(36px, 5vw, 58px);
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      max-width: 900px;
+      margin: 0 auto 12px;
+      white-space: nowrap;
+    }
+    @media (max-width: 900px) {
+      .hero h1 { white-space: normal; }
+    }
+    .hero h1 em {
+      font-style: italic;
+      font-weight: 300;
+      color: var(--gold);
+      display: block;
+    }
+    .hero-sub {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(18px, 2.5vw, 24px);
+      color: rgba(255,255,255,0.55);
+      font-weight: 300;
+      max-width: 620px;
+      margin: 0 auto 48px;
+      line-height: 1.5;
+      letter-spacing: -0.3px;
+    }
+    .hero-cta-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 64px;
+    }
+    .btn-hero {
+      background: var(--gold);
+      color: var(--navy);
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-hero:hover { opacity: 0.9; }
+    .btn-hero-ghost {
+      background: transparent;
+      color: rgba(255,255,255,0.7);
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.2);
+      transition: border-color 0.2s, color 0.2s;
+      cursor: pointer;
+    }
+    .btn-hero-ghost:hover { border-color: rgba(255,255,255,0.5); color: white; }
+
+    /* trust strip */
+    .trust-strip {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 32px;
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.45);
+      font-size: 13px;
+    }
+    .trust-item svg { opacity: 0.6; }
+
+    /* ── URGENCY BANNER ── */
+    .urgency {
+      background: var(--navy);
+      border-bottom: 3px solid var(--gold);
+      padding: 18px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .urgency-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.75);
+    }
+    .urgency-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--gold);
+      flex-shrink: 0;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.3); }
+    }
+    .urgency-item strong { color: var(--gold); font-weight: 700; }
+    .urgency-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.15); }
+
+    /* ── WHAT IS IT ── */
+    .what {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 56px 40px 80px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+    .what-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 16px;
+    }
+    .what h2 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(28px, 3.5vw, 40px);
+      font-weight: 600;
+      line-height: 1.2;
+      letter-spacing: -0.8px;
+      margin-bottom: 20px;
+      color: var(--navy);
+    }
+    .what p {
+      font-size: 16px;
+      color: var(--text-mid);
+      line-height: 1.75;
+      margin-bottom: 16px;
+    }
+    .what p strong { color: var(--text); font-weight: 600; }
+    .comparison {
+      background: var(--white);
+      border-radius: 14px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      box-shadow: 0 8px 32px rgba(11,24,41,0.10);
+    }
+    .comparison-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid var(--border);
+    }
+    .comparison-row:last-child { border-bottom: none; }
+    .comparison-cell {
+      padding: 18px 22px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .comparison-cell:first-child {
+      border-right: 2px solid var(--border);
+      color: var(--text-muted);
+      background: #fdfcfa;
+      text-decoration: line-through;
+      text-decoration-color: #ddd;
+    }
+    .comparison-cell:last-child {
+      color: var(--text);
+      font-weight: 600;
+      background: #f7fdf9;
+    }
+    .comparison-header {
+      padding: 14px 22px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    .comparison-header.bad {
+      background: #fdf2f2;
+      color: #c0392b;
+      border-right: 2px solid var(--border);
+    }
+    .comparison-header.good {
+      background: #e8f7f2;
+      color: var(--green);
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how {
+      background: var(--navy);
+      padding: 96px 40px;
+    }
+    .how-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .section-title {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(26px, 3.5vw, 38px);
+      font-weight: 600;
+      color: var(--white);
+      text-align: center;
+      letter-spacing: -0.8px;
+      margin-bottom: 64px;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+    }
+    .step {
+      background: var(--navy-mid);
+      padding: 36px 32px;
+      position: relative;
+    }
+    .step:first-child { border-radius: 12px 0 0 12px; }
+    .step:last-child { border-radius: 0 12px 12px 0; }
+    .step-num {
+      font-family: 'Fraunces', serif;
+      font-size: 48px;
+      font-weight: 700;
+      color: rgba(201,146,42,0.2);
+      line-height: 1;
+      margin-bottom: 20px;
+    }
+    .step h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 12px;
+      letter-spacing: -0.3px;
+    }
+    .step p {
+      font-size: 14px;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.7;
+    }
+    .step p strong { color: rgba(255,255,255,0.8); font-weight: 500; }
+
+    /* ── SOURCES ── */
+    .sources-section {
+      background: var(--off-white);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 64px 40px;
+    }
+    .sources-inner { max-width: 1100px; margin: 0 auto; }
+    .sources-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .sources-title {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--navy);
+      letter-spacing: -0.4px;
+    }
+    .sources-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .sources-toggle {
+      font-size: 13px;
+      color: var(--gold);
+      font-weight: 600;
+      cursor: pointer;
+      background: none;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .sources-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 10px;
+      display: none;
+    }
+    .sources-grid.open { display: grid; }
+    .source-item {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .source-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+    .source-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .source-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ── PRICING ── */
+    .pricing {
+      padding: 96px 40px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 48px;
+    }
+    .plan {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 36px 32px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .plan.featured {
+      border-color: var(--navy);
+      border-width: 2px;
+      box-shadow: 0 4px 32px rgba(11,24,41,0.10);
+    }
+    .plan-badge {
+      position: absolute;
+      top: -13px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--navy);
+      color: var(--white);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+    .plan-tier {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .plan-price-wrap { margin-bottom: 4px; }
+    .plan-price {
+      font-family: 'Fraunces', serif;
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+    .plan-price-period {
+      font-size: 15px;
+      color: var(--text-muted);
+      font-weight: 400;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .plan-value {
+      font-size: 14px;
+      color: var(--text-mid);
+      margin-bottom: 28px;
+      line-height: 1.5;
+      min-height: 42px;
+    }
+    .plan-value em {
+      font-style: normal;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .plan-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    .plan-features {
+      list-style: none;
+      margin-bottom: 32px;
+      flex: 1;
+    }
+    .plan-features li {
+      font-size: 14px;
+      color: var(--text-mid);
+      padding: 8px 0;
+      border-bottom: 1px solid var(--off-white);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      line-height: 1.5;
+    }
+    .plan-features li:last-child { border-bottom: none; }
+    .feat-check { color: var(--green); font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .feat-cross { color: var(--border); font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .plan-features li strong { color: var(--text); font-weight: 600; }
+    .email-field {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      margin-bottom: 10px;
+      outline: none;
+      background: var(--off-white);
+      transition: border-color 0.2s;
+    }
+    .email-field:focus { border-color: var(--navy); background: white; }
+    .plan-btn {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .plan-btn:active { transform: scale(0.98); }
+    .plan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-starter { background: var(--off-white); color: var(--navy); border: 1px solid var(--border); }
+    .btn-starter:hover:not(:disabled) { background: var(--border); }
+    .btn-pro { background: var(--navy); color: var(--white); }
+    .btn-pro:hover:not(:disabled) { opacity: 0.87; }
+    .btn-agency { background: var(--gold); color: var(--navy); }
+    .btn-agency:hover { opacity: 0.9; }
+    .pricing-note {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 24px;
+    }
+    .pricing-note a { color: var(--text-mid); text-decoration: underline; }
+
+    /* ── FAQ / DISCLAIMER ── */
+    .disclaimer {
+      background: var(--off-white);
+      border-top: 1px solid var(--border);
+      padding: 40px;
+      text-align: center;
+    }
+    .disclaimer p {
+      font-size: 13px;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+    .disclaimer a { color: var(--text-mid); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--navy);
+      padding: 32px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--white);
+    }
+    .footer-logo span { color: var(--gold); }
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+    .footer-links a {
+      font-size: 13px;
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+    }
+    .footer-links a:hover { color: rgba(255,255,255,0.7); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      header { padding: 0 24px; }
+      nav .nav-cta { display: none; }
+      .hero { padding: 72px 24px 56px; }
+      .what { grid-template-columns: 1fr; padding: 64px 24px; gap: 40px; }
+      .steps { grid-template-columns: 1fr; gap: 2px; }
+      .step:first-child { border-radius: 12px 12px 0 0; }
+      .step:last-child { border-radius: 0 0 12px 12px; }
+      .pricing { padding: 64px 24px; }
+      .pricing-grid { grid-template-columns: 1fr; gap: 16px; }
+      .plan.featured { order: -1; }
+      .urgency { padding: 14px 24px; gap: 16px; }
+      .urgency-divider { display: none; }
+      .sources-section { padding: 48px 24px; }
+      footer { padding: 24px; flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Act<span>Aware</span></div>
+  <nav>
+    <a href="#how-it-works">How it works</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#pricing" class="nav-cta">Start free trial</a>
+  </nav>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">UK Employer Compliance Intelligence</div>
+  <h1>Beyond Compliance.<em>Translate UK Law into Business Action.</em></h1>
+  <p class="hero-sub">We don't just tell you what changed. We tell you what to do, by when, and what happens if you don't.</p>
+  <div class="hero-cta-group">
+    <a href="#pricing" class="btn-hero">See plans from £39/month</a>
+    <a href="#how-it-works" class="btn-hero-ghost">How it works</a>
+  </div>
+  <div class="trust-strip">
+    <div class="trust-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Sourced from 12 official UK bodies
+    </div>
+    <div class="trust-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Delivered every Monday
+    </div>
+    <div class="trust-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Cancel anytime
+    </div>
+    <div class="trust-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Payments secured by Stripe
+    </div>
+  </div>
+</section>
+
+<!-- URGENCY BANNER -->
+<div class="urgency">
+  <div class="urgency-item">
+    <div class="urgency-dot"></div>
+    <span><strong>19 days to prepare</strong> — ERA 2025 Phase 1, 6 April 2026</span>
+  </div>
+  <div class="urgency-divider"></div>
+  <div class="urgency-item">
+    <div class="urgency-dot"></div>
+    <span><strong>Coming July 2026</strong> — Flexible working &amp; zero-hours changes</span>
+  </div>
+  <div class="urgency-divider"></div>
+  <div class="urgency-item">
+    <div class="urgency-dot"></div>
+    <span><strong>January 2027</strong> — Unfair dismissal cap removed, qualifying period drops to 6 months</span>
+  </div>
+</div>
+
+<!-- WHAT IS IT -->
+<section class="what">
+  <div>
+    <div class="what-label">The problem</div>
+    <h2>UK employment law just changed. Radically.</h2>
+    <p>The Employment Rights Act 2025 is the <strong>biggest overhaul of UK employment law in a generation</strong>. 28+ reforms rolling out through 2026–2027. Fair Work Agency launching with unannounced inspection powers. Unfair dismissal cap removed.</p>
+    <p>Most employers are reading the headlines and hoping for the best. The ones who stay out of tribunal are the ones who know what to do — and when.</p>
+    <p>ActAware monitors <strong>12 official UK sources</strong> continuously, extracts what matters for employers, and delivers plain-English action plans every Monday morning.</p>
+  </div>
+  <div class="comparison">
+    <div class="comparison-row">
+      <div class="comparison-header bad">Without ActAware</div>
+      <div class="comparison-header good">With ActAware</div>
+    </div>
+    <div class="comparison-row">
+      <div class="comparison-cell">Skim gov.uk PDFs hoping you caught everything</div>
+      <div class="comparison-cell">Every relevant change, summarised and prioritised</div>
+    </div>
+    <div class="comparison-row">
+      <div class="comparison-cell">"The law changed? I didn't know about that..."</div>
+      <div class="comparison-cell">Monday morning briefing, every week</div>
+    </div>
+    <div class="comparison-row">
+      <div class="comparison-cell">£500/hr solicitor to explain what it means</div>
+      <div class="comparison-cell">Plain-English action list, no jargon</div>
+    </div>
+    <div class="comparison-row">
+      <div class="comparison-cell">Find out about FWA enforcement after the fact</div>
+      <div class="comparison-cell">Tribunal decisions and enforcement notices tracked</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="how-it-works">
+  <div class="how-inner">
+    <div class="section-label">How it works</div>
+    <h2 class="section-title">Intelligence. Not just information.</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>We monitor everything</h3>
+        <p>12 official UK sources — GOV.UK, Legislation.gov.uk, HMRC, Employment Tribunals, Pensions Regulator, HSE and more — checked continuously. <strong>No manual work on your end.</strong></p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>We translate it for employers</h3>
+        <p>Every update is analysed for employer impact. <strong>What changed. What you must do. By when. What happens if you don't.</strong> Not legal jargon — operational intelligence.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>It lands in your inbox</h3>
+        <p>Every Monday, a clear briefing. Critical alerts within 24 hours for Professional and Agency subscribers. <strong>Your team stays informed without spending hours on gov.uk.</strong></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SAMPLE ALERT -->
+<section style="background:var(--white);padding:80px 40px;border-top:1px solid var(--border);">
+  <div style="max-width:680px;margin:0 auto;">
+    <div class="section-label" style="color:var(--gold);">Example alert</div>
+    <h2 style="font-family:'Fraunces',serif;font-size:clamp(24px,3vw,34px);font-weight:600;color:var(--navy);letter-spacing:-0.6px;margin-bottom:8px;">This is what lands in your inbox.</h2>
+    <p style="font-size:15px;color:var(--text-muted);margin-bottom:36px;">An actual alert, formatted exactly as subscribers receive it every Monday.</p>
+
+    <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:14px;">
+
+      <!-- Email header -->
+      <div style="background:var(--navy);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:var(--white);">ActAware</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px;margin-top:2px;">UK Employer Compliance Alerts</div>
+        </div>
+        <div style="background:var(--navy-mid);border-radius:6px;padding:6px 12px;text-align:center;">
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;">Week</div>
+          <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--white);line-height:1;">11</div>
+        </div>
+      </div>
+
+      <!-- Deadline banner -->
+      <div style="background:#1e3a5f;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:1px;">Key deadline</span>
+        <span style="font-size:13px;color:#bfdbfe;font-weight:600;">6 April 2026 — ERA 2025 Phase 1</span>
+      </div>
+
+      <!-- Email body -->
+      <div style="padding:24px 28px;background:var(--white);">
+        <p style="color:var(--text-mid);margin-bottom:20px;">Hi <strong>Acme HR</strong>,</p>
+        <p style="color:var(--text-mid);margin-bottom:24px;">Here are this week's UK employer compliance updates — sourced directly from GOV.UK and official bodies:</p>
+
+        <!-- Alert 1 -->
+        <div style="background:var(--off-white);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin-bottom:14px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;margin-bottom:8px;">GOV.UK — Employment Rights Act 2025</div>
+          <span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;text-transform:uppercase;">HIGH</span>
+          <p style="margin-top:10px;color:var(--text);line-height:1.7;"><strong>Paternity leave becomes a day-one right from 6 April 2026</strong></p>
+          <p style="color:var(--text-mid);margin-top:6px;line-height:1.7;">What changed: The 26-week qualifying period for paternity leave is removed. Employees can take paternity leave from their first day of employment.</p>
+          <p style="color:var(--text-mid);margin-top:8px;font-weight:600;">What employers must do:</p>
+          <ul style="margin:6px 0 0 18px;color:var(--text-mid);line-height:1.8;">
+            <li>Update employment contracts and offer letters — remove any reference to the 26-week requirement</li>
+            <li>Brief line managers and HR before the April deadline</li>
+            <li>Review your onboarding checklist and handbook</li>
+          </ul>
+          <p style="color:var(--text-mid);margin-top:8px;font-weight:600;">Risk if ignored:</p>
+          <p style="color:var(--text-mid);margin-top:4px;">Denial of leave to a new starter may constitute automatically unfair dismissal.</p>
+          <p style="margin-top:8px;font-size:12px;color:var(--text-muted);">Source: <span style="color:#6366f1;">gov.uk/government/publications/employment-rights-bill-factsheets</span></p>
+        </div>
+
+        <!-- Alert 2 -->
+        <div style="background:var(--off-white);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin-bottom:14px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;margin-bottom:8px;">GOV.UK — National Minimum Wage</div>
+          <span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;text-transform:uppercase;">CRITICAL</span>
+          <p style="margin-top:10px;color:var(--text);line-height:1.7;"><strong>National Living Wage rises to £12.71/hr from 1 April 2026</strong></p>
+          <p style="color:var(--text-mid);margin-top:6px;line-height:1.7;">What changed: NLW increases 4.1% from £12.21 to £12.71 for workers aged 21+. 18–20 age band rises 8.5% to £10.85.</p>
+          <p style="color:var(--text-mid);margin-top:8px;font-weight:600;">What employers must do:</p>
+          <ul style="margin:6px 0 0 18px;color:var(--text-mid);line-height:1.8;">
+            <li>Update payroll before the April payrun — non-compliance triggers FWA enforcement</li>
+            <li>Check for wage compression: if lower-band salaries rise, review mid-tier pay too</li>
+          </ul>
+          <p style="color:var(--text-mid);margin-top:8px;font-weight:600;">Risk if ignored:</p>
+          <p style="color:var(--text-mid);margin-top:4px;">Fair Work Agency can audit back 6 years and fine up to 200% of underpayment.</p>
+          <p style="margin-top:8px;font-size:12px;color:var(--text-muted);">Source: <span style="color:#6366f1;">gov.uk/national-minimum-wage-rates</span></p>
+        </div>
+
+        <div style="background:var(--off-white);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--text-muted);line-height:1.6;">
+          ⚠️ Sourced from official UK government publications. Not legal advice — consult a solicitor for specific situations.
+        </div>
+      </div>
+
+      <!-- Email footer -->
+      <div style="background:#f8fafc;border-top:1px solid var(--border);padding:16px 28px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-muted);">ActAware · UK Employer Compliance</span>
+        <span style="font-size:11px;color:var(--border);">actaware.co.uk</span>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:32px;">
+      <a href="#pricing" class="btn-hero" style="display:inline-block;text-decoration:none;">Get alerts like this every Monday →</a>
+    </div>
+  </div>
+</section>
+
+<!-- SOURCES -->
+<section class="sources-section">
+  <div class="sources-inner">
+    <div class="sources-header">
+      <div>
+        <div class="sources-title">Our sources</div>
+        <div class="sources-subtitle">All 12 sources are included in every plan. No paywalls on data.</div>
+      </div>
+      <button class="sources-toggle" onclick="toggleSources()">
+        <span id="toggle-text">Show all sources ↓</span>
+      </button>
+    </div>
+    <div class="sources-grid" id="sources-grid">
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">GOV.UK — Employment Rights Act 2025</div>
+          <div class="source-desc">Guidance updates, implementation roadmap, consultations</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">GOV.UK — Employment Consultations</div>
+          <div class="source-desc">Make Work Pay initiative, all open consultations</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">GOV.UK — HMRC Employer Guidance</div>
+          <div class="source-desc">PAYE, NIC, employer bulletins</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">GOV.UK — National Minimum Wage</div>
+          <div class="source-desc">NLW/NMW rate changes and enforcement</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">GOV.UK — Fair Work Agency</div>
+          <div class="source-desc">Enforcement notices, underpayment decisions, inspections</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">GOV.UK — Statutory Pay</div>
+          <div class="source-desc">SSP, SMP, SPP rate and eligibility changes</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">GOV.UK — DBT Employer News</div>
+          <div class="source-desc">Department for Business and Trade employer policy</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">GOV.UK — ICO Data Protection</div>
+          <div class="source-desc">UK GDPR employer guidance, enforcement</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">Legislation.gov.uk — Statutory Instruments</div>
+          <div class="source-desc">All secondary legislation under ERA 2025, filtered for employment</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">Employment Tribunal — Case Decisions</div>
+          <div class="source-desc">ERA 2025 precedent cases as they are published</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">Pensions Regulator</div>
+          <div class="source-desc">Auto-enrolment employer guidance and enforcement</div>
+        </div>
+      </div>
+      <div class="source-item">
+        <div class="source-dot"></div>
+        <div>
+          <div class="source-name">HSE — Health &amp; Safety</div>
+          <div class="source-desc">Workplace health &amp; safety employer obligations</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="section-label" style="text-align:center">Pricing</div>
+  <h2 class="section-title" style="color:var(--navy)">One subscription. Zero compliance blind spots.</h2>
+  <div class="pricing-grid">
+
+    <!-- STARTER -->
+    <div class="plan">
+      <div class="plan-tier">Starter</div>
+      <div class="plan-price-wrap">
+        <span class="plan-price">£39</span>
+        <span class="plan-price-period">&nbsp;/ month</span>
+      </div>
+      <div class="plan-value"><em>Stay compliant without hiring a lawyer.</em><br>For solo HR managers and small employers.</div>
+      <hr class="plan-divider">
+      <ul class="plan-features">
+        <li><span class="feat-check">✓</span> <span><strong>Weekly email digest</strong> — every Monday</span></li>
+        <li><span class="feat-check">✓</span> <span>All 12 official UK sources</span></li>
+        <li><span class="feat-check">✓</span> <span>Plain-English action items per alert</span></li>
+        <li><span class="feat-check">✓</span> <span>Importance scoring (Critical / High / Medium)</span></li>
+        <li><span class="feat-check">✓</span> <span>1 user · 30-day archive</span></li>
+        <li><span class="feat-cross">✗</span> <span style="color:var(--text-muted)">Search archive</span></li>
+        <li><span class="feat-cross">✗</span> <span style="color:var(--text-muted)">Slack / Teams</span></li>
+        <li><span class="feat-cross">✗</span> <span style="color:var(--text-muted)">Critical alerts within 24h</span></li>
+      </ul>
+      <input type="email" class="email-field" id="email-starter" placeholder="your@email.com">
+      <button class="plan-btn btn-starter" onclick="subscribe('price_1TChtb1Xanrz03nuIzigt2x5', 'email-starter', this)">
+        Start with Starter
+      </button>
+    </div>
+
+    <!-- PROFESSIONAL -->
+    <div class="plan featured">
+      <div class="plan-badge">Best for teams</div>
+      <div class="plan-tier">Professional</div>
+      <div class="plan-price-wrap">
+        <span class="plan-price">£79</span>
+        <span class="plan-price-period">&nbsp;/ month</span>
+      </div>
+      <div class="plan-value"><em>Your whole team, always one step ahead.</em><br>For HR teams and growing businesses.</div>
+      <hr class="plan-divider">
+      <ul class="plan-features">
+        <li><span class="feat-check">✓</span> <span>Everything in Starter</span></li>
+        <li><span class="feat-check">✓</span> <span><strong>Critical alerts within 24 hours</strong></span></li>
+        <li><span class="feat-check">✓</span> <span><strong>Full risk analysis</strong> + prioritised action plan</span></li>
+        <li><span class="feat-check">✓</span> <span><strong>3 users</strong> (+£15/month per extra user)</span></li>
+        <li><span class="feat-check">✓</span> <span>Unlimited archive + search</span></li>
+        <li><span class="feat-check">✓</span> <span>Slack &amp; Microsoft Teams integration</span></li>
+        <li><span class="feat-cross">✗</span> <span style="color:var(--text-muted)">White-label / client accounts</span></li>
+        <li><span class="feat-cross">✗</span> <span style="color:var(--text-muted)">API access</span></li>
+      </ul>
+      <input type="email" class="email-field" id="email-pro" placeholder="your@email.com">
+      <button class="plan-btn btn-pro" onclick="subscribe('price_1TChu51Xanrz03numP5U6R8R', 'email-pro', this)">
+        Start with Professional
+      </button>
+    </div>
+
+    <!-- AGENCY -->
+    <div class="plan">
+      <div class="plan-tier">Agency</div>
+      <div class="plan-price-wrap">
+        <span class="plan-price">£149</span>
+        <span class="plan-price-period">&nbsp;/ month</span>
+      </div>
+      <div class="plan-value"><em>Protect every client. Build your authority.</em><br>For HR consultants, accountants &amp; advisors.</div>
+      <hr class="plan-divider">
+      <ul class="plan-features">
+        <li><span class="feat-check">✓</span> <span>Everything in Professional</span></li>
+        <li><span class="feat-check">✓</span> <span><strong>15 client accounts</strong> under one subscription</span></li>
+        <li><span class="feat-check">✓</span> <span><strong>White-label</strong> — your brand, your clients</span></li>
+        <li><span class="feat-check">✓</span> <span><strong>API access</strong> to alert data</span></li>
+        <li><span class="feat-check">✓</span> <span>Client-ready reports</span></li>
+        <li><span class="feat-check">✓</span> <span>Dedicated support</span></li>
+        <li><span class="feat-check">✓</span> <span>Unlimited archive + search</span></li>
+        <li><span class="feat-check">✓</span> <span>Slack &amp; Microsoft Teams</span></li>
+      </ul>
+      <input type="email" class="email-field" id="email-agency" placeholder="your@email.com">
+      <button class="plan-btn btn-agency" onclick="contactAgency()">
+        Get in touch
+      </button>
+      <div style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:10px;">We'll set you up within 24 hours</div>
+    </div>
+
+  </div>
+  <div class="pricing-note">
+    All plans include all 12 sources · No setup fees · Cancel anytime ·
+    <a href="/dashboard.html">View alert archive</a>
+  </div>
+</section>
+
+<!-- DISCLAIMER -->
+<div class="disclaimer">
+  <p>ActAware monitors official UK government sources and provides plain-English summaries for informational purposes only. Summaries are generated using AI and reviewed against official source URLs included in every alert. This is not legal advice — always verify with primary sources and consult a qualified solicitor for specific situations. Sources include GOV.UK, Legislation.gov.uk, HMRC, HSE, ICO and other official UK bodies.</p>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">Act<span>Aware</span></div>
+  <div class="footer-links">
+    <a href="/dashboard.html">My alerts</a>
+    <a href="mailto:hello@actaware.co.uk">Contact</a>
+    <a href="#pricing">Pricing</a>
+  </div>
+</footer>
+
+<script>
+  function contactAgency() {
+    const email = document.getElementById('email-agency').value.trim();
+    if (!email || !email.includes('@')) {
+      document.getElementById('email-agency').focus();
+      document.getElementById('email-agency').style.borderColor = '#e74c3c';
+      setTimeout(() => document.getElementById('email-agency').style.borderColor = '', 2000);
+      return;
+    }
+    window.location.href = `mailto:hello@actaware.co.uk?subject=Agency plan enquiry&body=Please contact me about the Agency plan.%0A%0AEmail: ${email}`;
+  }
+
+  function toggleSources() {
+    const grid = document.getElementById('sources-grid');
+    const text = document.getElementById('toggle-text');
+    const isOpen = grid.classList.toggle('open');
+    text.textContent = isOpen ? 'Hide sources ↑' : 'Show all sources ↓';
+  }
+
+  async function subscribe(priceId, emailFieldId, btn) {
+    const email = document.getElementById(emailFieldId).value.trim();
+    if (!email || !email.includes('@')) {
+      document.getElementById(emailFieldId).focus();
+      document.getElementById(emailFieldId).style.borderColor = '#e74c3c';
+      setTimeout(() => document.getElementById(emailFieldId).style.borderColor = '', 2000);
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Redirecting...';
+    try {
+      const res = await fetch('/.netlify/functions/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId, email }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Something went wrong. Please try again.');
+        btn.disabled = false;
+        btn.textContent = btn.textContent.includes('Starter') ? 'Start with Starter' : 'Start with Professional';
+      }
+    } catch (err) {
+      alert('Something went wrong. Please try again.');
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>

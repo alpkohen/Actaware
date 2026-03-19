@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Alerts — ActAware</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; color: #111; min-height: 100vh; }
+    header { background: #0f172a; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 18px; font-weight: 700; }
+    header a { color: #94a3b8; font-size: 13px; text-decoration: none; }
+    .container { max-width: 800px; margin: 0 auto; padding: 32px 16px; }
+    .login-card { background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 32px; max-width: 400px; margin: 60px auto; }
+    .login-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .login-card p { font-size: 14px; color: #6b7280; margin-bottom: 20px; }
+    input[type="email"] { width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 12px; outline: none; }
+    input[type="email"]:focus { border-color: #6366f1; }
+    .btn { width: 100%; padding: 11px; background: #0f172a; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .btn:hover { opacity: 0.9; }
+    .search-bar { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 12px 16px; display: flex; gap: 10px; margin-bottom: 20px; }
+    .search-bar input { flex: 1; border: none; outline: none; font-size: 14px; }
+    .search-bar button { background: #0f172a; color: white; border: none; border-radius: 6px; padding: 6px 16px; font-size: 13px; cursor: pointer; }
+    .alert-card { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 20px; margin-bottom: 12px; }
+    .alert-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .alert-title { font-size: 15px; font-weight: 600; color: #111; }
+    .alert-date { font-size: 12px; color: #9ca3af; }
+    .alert-source { font-size: 11px; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .alert-summary { font-size: 13px; color: #4b5563; line-height: 1.65; white-space: pre-wrap; }
+    .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px; text-transform: uppercase; }
+    .badge-high { background: #fef3c7; color: #92400e; }
+    .badge-critical { background: #fee2e2; color: #991b1b; }
+    .badge-medium { background: #e0f2fe; color: #0369a1; }
+    .empty { text-align: center; color: #9ca3af; padding: 60px 0; font-size: 14px; }
+    #login-section { display: block; }
+    #dashboard-section { display: none; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>ActAware</h1>
+  <a href="/">← Back to home</a>
+</header>
+<div class="container">
+  <div id="login-section">
+    <div class="login-card">
+      <h2>Your alert history</h2>
+      <p>Enter the email address you subscribed with to view your past compliance alerts.</p>
+      <input type="email" id="login-email" placeholder="your@email.com">
+      <button class="btn" onclick="loadAlerts()">View my alerts</button>
+      <p id="login-error" style="color:#ef4444;font-size:13px;margin-top:10px;display:none;">No account found with that email address.</p>
+    </div>
+  </div>
+  <div id="dashboard-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div>
+        <h2 style="font-size:20px;font-weight:700;">Your compliance alerts</h2>
+        <p style="font-size:13px;color:#6b7280;margin-top:2px;" id="alert-count"></p>
+      </div>
+      <button onclick="logout()" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;color:#6b7280;">Sign out</button>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search alerts (e.g. SSP, paternity, NMW)..." onkeyup="if(event.key==='Enter')searchAlerts()">
+      <button onclick="searchAlerts()">Search</button>
+    </div>
+    <div id="alerts-list"></div>
+  </div>
+</div>
+<script>
+  let currentEmail = "";
+  let allAlerts = [];
+  async function loadAlerts() {
+    const email = document.getElementById("login-email").value.trim();
+    if (!email) return;
+    const res = await fetch("/.netlify/functions/dashboard-alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (data.error || !data.alerts) {
+      document.getElementById("login-error").style.display = "block";
+      return;
+    }
+    currentEmail = email;
+    allAlerts = data.alerts;
+    document.getElementById("login-section").style.display = "none";
+    document.getElementById("dashboard-section").style.display = "block";
+    renderAlerts(allAlerts);
+  }
+  async function searchAlerts() {
+    const search = document.getElementById("search-input").value.trim();
+    const res = await fetch("/.netlify/functions/dashboard-alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: currentEmail, search }),
+    });
+    const data = await res.json();
+    renderAlerts(data.alerts || []);
+  }
+  function renderAlerts(alerts) {
+    const list = document.getElementById("alerts-list");
+    document.getElementById("alert-count").textContent = `${alerts.length} alert${alerts.length !== 1 ? "s" : ""} found`;
+    if (alerts.length === 0) {
+      list.innerHTML = "<div class='empty'>No alerts found</div>";
+      return;
+    }
+    list.innerHTML = alerts.map(alert => {
+      const date = new Date(alert.sent_at).toLocaleDateString("en-GB", {
+        day: "numeric", month: "short", year: "numeric"
+      });
+      const badgeClass = alert.importance === "critical" ? "badge-critical" : alert.importance === "high" ? "badge-high" : "badge-medium";
+      return `
+        <div class="alert-card">
+          <div class="alert-header">
+            <div class="alert-title">${alert.alert_title}</div>
+            <div class="alert-date">${date}</div>
+          </div>
+          <div class="alert-source">${alert.alert_source || "GOV.UK"}</div>
+          <span class="badge ${badgeClass}">${alert.importance || "high"}</span>
+          <div class="alert-summary" style="margin-top:10px;">${alert.alert_summary}</div>
+        </div>
+      `;
+    }).join("");
+  }
+  function logout() {
+    currentEmail = "";
+    allAlerts = [];
+    document.getElementById("login-section").style.display = "block";
+    document.getElementById("dashboard-section").style.display = "none";
+    document.getElementById("login-email").value = "";
+  }
+</script>
+</body>
+</html>
