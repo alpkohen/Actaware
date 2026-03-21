@@ -105,25 +105,56 @@ const RSS_FEEDS = [
   },
 ];
 
-async function fetchRSS(url, useHttp = false) {
+/** Fetch Atom/RSS with browser-like headers (Legislation.gov.uk and others may 404 bare Node clients). */
+async function fetchRSS(urlString) {
   return new Promise((resolve, reject) => {
-    const client = (useHttp || url.startsWith("http://")) ? http : https;
-    const req = client.get(url, { timeout: 15000 }, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        fetchRSS(res.headers.location).then(resolve).catch(reject);
+    function doRequest(currentUrl) {
+      let parsed;
+      try {
+        parsed = new URL(currentUrl);
+      } catch {
+        reject(new Error(`Invalid URL: ${currentUrl}`));
         return;
       }
-      if (res.statusCode >= 400) {
-        reject(new Error(`HTTP ${res.statusCode}`));
-        return;
-      }
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => resolve(data));
-      res.on("error", reject);
-    });
-    req.on("error", reject);
-    req.on("timeout", () => { req.destroy(); reject(new Error("Timeout")); });
+      const isHttp = parsed.protocol === "http:";
+      const client = isHttp ? http : https;
+      const options = {
+        hostname: parsed.hostname,
+        port: parsed.port || (isHttp ? 80 : 443),
+        path: `${parsed.pathname}${parsed.search}`,
+        method: "GET",
+        timeout: 20000,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (compatible; ActAware/1.0; UK employer alerts; +https://actaware.co.uk)",
+          Accept: "application/atom+xml,application/xml,text/xml;q=0.9,*/*;q=0.8",
+        },
+      };
+
+      const req = client.request(options, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          const loc = res.headers.location.trim();
+          const next = /^https?:\/\//i.test(loc) ? loc : new URL(loc, currentUrl).href;
+          doRequest(next);
+          return;
+        }
+        if (res.statusCode >= 400) {
+          reject(new Error(`HTTP ${res.statusCode}`));
+          return;
+        }
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => resolve(data));
+        res.on("error", reject);
+      });
+      req.on("error", reject);
+      req.on("timeout", () => {
+        req.destroy();
+        reject(new Error("Timeout"));
+      });
+      req.end();
+    }
+    doRequest(urlString);
   });
 }
 
@@ -497,7 +528,7 @@ exports.handler = async function () {
     };
 
     try {
-      const xml = await fetchRSS(feed.url, feed.useHttp || false);
+      const xml = await fetchRSS(feed.url);
       const allItems = parseRSSItems(xml, filterSpec);
       const items = allItems.filter(item => {
         if (!item.published) return false;
