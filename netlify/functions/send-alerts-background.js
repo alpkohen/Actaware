@@ -454,16 +454,20 @@ function getLondonHour() {
 }
 
 exports.handler = async function () {
-  const londonHour = getLondonHour();
-  if (londonHour !== 8) {
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        skipped: true,
-        reason: "Not 08:00 Europe/London",
-        londonHour,
-      }),
-    };
+  const testRun = process.env.SEND_ALERTS_TEST_RUN === "true";
+
+  if (!testRun) {
+    const londonHour = getLondonHour();
+    if (londonHour !== 8) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          skipped: true,
+          reason: "Not 08:00 Europe/London",
+          londonHour,
+        }),
+      };
+    }
   }
 
   const runId = `run_${new Date().toISOString().replace(/[:.]/g, "-")}`;
@@ -550,7 +554,17 @@ exports.handler = async function () {
   const priorityOrder = { critical: 0, high: 1, medium: 2 };
   alertSections.sort((a, b) => (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2));
 
-  const users = await getActiveUsers();
+  let users = await getActiveUsers();
+  const testEmailOnly = process.env.TEST_EMAIL_ONLY?.trim();
+  if (testEmailOnly) {
+    const match = users.find(
+      (u) => u.users?.email?.toLowerCase() === testEmailOnly.toLowerCase()
+    );
+    users = match
+      ? [match]
+      : [{ user_id: null, plan: "test", users: { email: testEmailOnly, company_name: "" } }];
+  }
+
   let sentCount = 0;
   const isQuietDay = alertSections.length === 0;
 
@@ -561,46 +575,56 @@ exports.handler = async function () {
         await resend.emails.send({
           from: "ActAware <onboarding@resend.dev>",
           to: sub.users.email,
-          subject: `ActAware: All quiet — UK employer sources (${shortDate})`,
+          subject: testRun
+            ? `[TEST] ActAware: All quiet — UK employer sources (${shortDate})`
+            : `ActAware: All quiet — UK employer sources (${shortDate})`,
           html,
           click_tracking: false,
           open_tracking: false,
         });
-        await supabase.from("sent_alerts").insert({
-          user_id: sub.user_id,
-          alert_title: `Daily check-in — no new updates (${shortDate})`,
-          alert_summary:
-            "No employer-relevant changes detected across monitored official UK sources in the last ~36 hours.",
-          alert_source: "system — quiet day",
-          importance: "medium",
-        });
+        if (sub.user_id) {
+          await supabase.from("sent_alerts").insert({
+            user_id: sub.user_id,
+            alert_title: `Daily check-in — no new updates (${shortDate})`,
+            alert_summary:
+              "No employer-relevant changes detected across monitored official UK sources in the last ~36 hours.",
+            alert_source: "system — quiet day",
+            importance: "medium",
+          });
+        }
       } else {
         const html = buildEmailHTML(sub.users.company_name, alertSections, dateLabel);
         await resend.emails.send({
           from: "ActAware <onboarding@resend.dev>",
           to: sub.users.email,
-          subject: `UK Employer Compliance — ${shortDate}`,
+          subject: testRun
+            ? `[TEST] UK Employer Compliance — ${shortDate}`
+            : `UK Employer Compliance — ${shortDate}`,
           html,
           click_tracking: false,
           open_tracking: false,
         });
-        await supabase.from("sent_alerts").insert({
-          user_id: sub.user_id,
-          alert_title: `Daily UK Employer Compliance — ${shortDate}`,
-          alert_summary: alertSections.map(s => `[${s.source}] ${s.content}`).join("\n\n").substring(0, 500),
-          alert_source: alertSections.map(s => s.source).join(", "),
-          importance: alertSections.some(s => s.priority === "critical") ? "critical" : "high",
-        });
+        if (sub.user_id) {
+          await supabase.from("sent_alerts").insert({
+            user_id: sub.user_id,
+            alert_title: `Daily UK Employer Compliance — ${shortDate}`,
+            alert_summary: alertSections.map(s => `[${s.source}] ${s.content}`).join("\n\n").substring(0, 500),
+            alert_source: alertSections.map(s => s.source).join(", "),
+            importance: alertSections.some(s => s.priority === "critical") ? "critical" : "high",
+          });
+        }
       }
       sentCount++;
     } catch (err) {
-      console.error(`Email error for user ${sub.user_id}: ${err.message}`);
+      console.error(`Email error for user ${sub.user_id ?? sub.users?.email}: ${err.message}`);
     }
   }
 
   return {
     statusCode: 202,
     body: JSON.stringify({
+      testRun,
+      testEmailOnly: testEmailOnly || null,
       message: isQuietDay
         ? `Sent ${sentCount} quiet-day check-ins`
         : `Sent ${sentCount} digest emails`,

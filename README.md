@@ -45,8 +45,18 @@ Background fonksiyon ve diğer lambda’lar için tipik değişkenler:
 | `STRIPE_SECRET_KEY` | Ödeme (checkout + webhook) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook doğrulama |
 | `ALERT_EMAIL` | *(Opsiyonel)* Feed hata olunca Resend ile uyarı almak istediğiniz adres |
+| `SEND_ALERTS_TEST_RUN` | `true` ise Londra 08:00 kilidini atlar — **sadece manuel test için**; bitince kaldırın |
+| `TEST_EMAIL_ONLY` | Örn. `siz@email.com` — mail **yalnızca bu adrese** gider (abonelikte yoksa bile test maili gider; `sent_alerts` yazılmaz) |
 
 Netlify: **Site settings → Environment variables**
+
+### E-posta testi (güvenli)
+
+1. Netlify → **Environment variables** → ekleyin: `SEND_ALERTS_TEST_RUN` = `true`, `TEST_EMAIL_ONLY` = kendi e-postanız.
+2. **Save** → **Deploys** → **Trigger deploy** → **Clear cache and deploy site** (env’nin fonksiyona işlemesi için).
+3. **Functions** → `send-alerts-background` → **Invoke function** (veya tarayıcıdan `POST` ile aynı endpoint).
+4. Gelen kutunuzu kontrol edin; konu satırında **`[TEST]`** görünür.
+5. Test bittikten sonra Netlify’dan **`SEND_ALERTS_TEST_RUN` ve `TEST_EMAIL_ONLY` değişkenlerini silin** (veya `false` / boş), yoksa üretim davranışı bozulur.
 
 ## Kaynakların tamamının taranması (güvence)
 
