@@ -24,7 +24,7 @@ const FEEDS = [
   { name: "GOV.UK — Employment Consultations", url: "https://www.gov.uk/search/policy-papers-and-consultations.atom?topics%5B%5D=employment" },
   { name: "ACAS — News", url: "https://www.acas.org.uk/feed" },
   { name: "ICO — News", url: "https://ico.org.uk/about-the-ico/media-centre/news-and-blogs/feed/" },
-  { name: "Legislation — New SI", url: "https://www.legislation.gov.uk/new/uksi.atom" },
+  { name: "Legislation — UKSI feed", url: "https://www.legislation.gov.uk/uksi/data.feed?sort=published" },
   { name: "GOV.UK — DBT All News", url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=department-for-business-and-trade" },
   { name: "GOV.UK — NMW Updates", url: "https://www.gov.uk/search/all.atom?keywords=national+minimum+wage&organisations%5B%5D=department-for-business-and-trade" },
   { name: "HSE — News", url: "https://press.hse.gov.uk/feed/" },

@@ -55,7 +55,8 @@ const RSS_FEEDS = [
   // ── CATEGORY 2: Legislation.gov.uk — ERA 2025 Statutory Instruments ──
   {
     name: "Legislation.gov.uk — New Statutory Instruments (ERA 2025)",
-    url: "http://www.legislation.gov.uk/new/uksi/data.feed",
+    // /new/uksi/data.feed returns 404 from some servers; canonical feed is uksi + sort=published
+    url: "https://www.legislation.gov.uk/uksi/data.feed?sort=published",
     priority: "critical",
     // Any SI matching one of these (title/summary) is kept; avoids missing employer-relevant law that omits the word "employment"
     filterKeywords: [
@@ -82,7 +83,6 @@ const RSS_FEEDS = [
       "transfer of undertakings",
       "tupe",
     ],
-    useHttp: true,
   },
   // ── CATEGORY 2: Employment Tribunal Decisions ──
   // Feed returns titles only — we send to Claude regardless; AI decides relevance.
