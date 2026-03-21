@@ -18,5 +18,6 @@
 [functions]
   node_bundler = "esbuild"
 
-[functions."send-alerts"]
-  schedule = "0 8 * * 1"
+# Hourly trigger; the function only runs the job when local time is 08:00 in Europe/London (GMT/BST).
+[functions."send-alerts-background"]
+  schedule = "0 * * * *"
