@@ -48,6 +48,28 @@ Background fonksiyon ve diğer lambda’lar için tipik değişkenler:
 
 Netlify: **Site settings → Environment variables**
 
+## Kaynakların tamamının taranması (güvence)
+
+`send-alerts-background.js` içinde **12 adet** RSS/Atom kaynağı (`RSS_FEEDS`) tanımlıdır; her çalıştırmada **hepsi sırayla denenir** (biri çökse diğerleri devam eder).
+
+### Nasıl doğrularsınız?
+
+1. **Netlify** → site → **Functions** → `send-alerts-background` → son çalıştırmanın **Response body** JSON’una bakın:
+   - `feedOutcomes`: her kaynak için `status` (`in_digest`, `no_items_in_window`, `claude_no_employer_relevant`, `fetch_or_parse_error`, `claude_error`)
+   - `summary`: kaç kaynak özetlendi, kaçında hata var, vb.
+2. **Supabase** → `raw_feed_logs`: aynı `run_id` ile 12 satır görürsünüz (her kaynak bir satır; `item_count` o pencerede kaç item olduğunu gösterir).
+3. **Supabase** → `feed_fetch_errors`: sadece gerçek hata olduğunda satır oluşur (HTTP timeout, Anthropic hata mesajı `Anthropic: ...` ile başlayabilir).
+
+### Bilerek uygulanan sınırlar (atlanma değil, tasarım)
+
+| Durum | Açıklama |
+|--------|-----------|
+| **Son ~36 saat** | Günlük mail için sadece bu penceredeki **tarihli** item’lar işlenir; tarihi olmayan atom öğeleri günlük tekrarı önlemek için **alınmaz**. |
+| **Legislation.gov.uk** | Tüm SI’lar değil; başlık/özetinde iş/çalışan ile ilgili anahtar kelimelerden **biri** geçenler tutulur (geniş liste; yine de “employment” dışı SI’lar bilerek dışarıda kalabilir). |
+| **Claude “işveren için yok”** | Model, verilen item’lar için `No employer-relevant updates...` dönerse o kaynak **günlük özet mailine girmez**; ham veri yine `raw_feed_logs`’ta kalır. |
+
+Bu sınırlar dışında, fetch/parse hatası olursa kayıt **`feed_fetch_errors`** tablosuna yazılır.
+
 ## Yerel / deploy
 
 - Statik site kökten yayınlanır; fonksiyonlar `netlify/functions/`.

@@ -57,7 +57,31 @@ const RSS_FEEDS = [
     name: "Legislation.gov.uk — New Statutory Instruments (ERA 2025)",
     url: "http://www.legislation.gov.uk/new/uksi/data.feed",
     priority: "critical",
-    filterKeyword: "employment",
+    // Any SI matching one of these (title/summary) is kept; avoids missing employer-relevant law that omits the word "employment"
+    filterKeywords: [
+      "employment",
+      "employer",
+      "employee",
+      "wage",
+      "pension",
+      "statutory",
+      "redundan",
+      "dismiss",
+      "tribunal",
+      "maternity",
+      "paternity",
+      "holiday",
+      "leave",
+      "discrimina",
+      "worker",
+      "national insurance",
+      "minimum wage",
+      "agency worker",
+      "fixed-term",
+      "whistleblow",
+      "transfer of undertakings",
+      "tupe",
+    ],
     useHttp: true,
   },
   // ── CATEGORY 2: Employment Tribunal Decisions ──
@@ -103,8 +127,15 @@ async function fetchRSS(url, useHttp = false) {
   });
 }
 
+/** @param {string|string[]|null} filterSpec - string, or array (match if ANY substring matches title+summary) */
+function matchesFeedFilter(textLc, filterSpec) {
+  if (!filterSpec) return true;
+  const keys = Array.isArray(filterSpec) ? filterSpec : [filterSpec];
+  return keys.some((k) => textLc.includes(String(k).toLowerCase()));
+}
+
 // Returns all matching items from the feed XML — caller filters by date window.
-function parseRSSItems(xml, filterKeyword = null) {
+function parseRSSItems(xml, filterSpec = null) {
   const items = [];
   const entryRegex = /<entry>([\s\S]*?)<\/entry>|<item>([\s\S]*?)<\/item>/g;
   let match;
@@ -116,10 +147,8 @@ function parseRSSItems(xml, filterKeyword = null) {
     const published = (block.match(/<published>([\s\S]*?)<\/published>/) || block.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || block.match(/<updated>([\s\S]*?)<\/updated>/) || [])[1] || "";
     const cleanTitle = title.replace(/<[^>]+>/g, "").trim();
     if (!cleanTitle) continue;
-    if (filterKeyword) {
-      const lc = cleanTitle.toLowerCase() + summary.toLowerCase();
-      if (!lc.includes(filterKeyword)) continue;
-    }
+    const lc = cleanTitle.toLowerCase() + summary.toLowerCase();
+    if (!matchesFeedFilter(lc, filterSpec)) continue;
     items.push({
       title: cleanTitle,
       summary: summary.replace(/<[^>]+>/g, "").trim().substring(0, 600),
@@ -167,7 +196,15 @@ Source: [URL]`;
     }),
   });
   const data = await response.json();
-  return data.content[0].text;
+  if (!response.ok) {
+    const snippet = JSON.stringify(data).slice(0, 800);
+    throw new Error(`Anthropic HTTP ${response.status}: ${snippet}`);
+  }
+  const text = data?.content?.[0]?.text;
+  if (typeof text !== "string" || !text.trim()) {
+    throw new Error(`Anthropic empty or invalid content: ${JSON.stringify(data).slice(0, 400)}`);
+  }
+  return text;
 }
 
 async function getActiveUsers() {
@@ -442,33 +479,70 @@ exports.handler = async function () {
   const cutoff = Date.now() - 36 * 60 * 60 * 1000;
 
   const alertSections = [];
+  /** Per-feed outcome for Netlify logs + API response — proves all 12 sources were attempted */
+  const feedOutcomes = [];
 
   for (const feed of RSS_FEEDS) {
+    const filterSpec = feed.filterKeywords || feed.filterKeyword || null;
+    const outcome = {
+      feed: feed.name,
+      itemsInWindow: 0,
+      inDigest: false,
+      status: "pending",
+      detail: null,
+    };
+
     try {
       const xml = await fetchRSS(feed.url, feed.useHttp || false);
-      const allItems = parseRSSItems(xml, feed.filterKeyword || null);
+      const allItems = parseRSSItems(xml, filterSpec);
       const items = allItems.filter(item => {
         if (!item.published) return false;
         const d = new Date(item.published);
         return !isNaN(d) && d.getTime() >= cutoff;
       });
 
+      outcome.itemsInWindow = items.length;
       console.log(`Feed "${feed.name}": ${items.length} items (36h window)`);
 
       await logRawFeed(runId, feed, items);
 
-      if (items.length > 0) {
-        const content = await summariseWithClaude(items, feed.name);
-        if (
-          !content.includes("No employer-relevant updates") &&
-          !content.includes("insufficient information") &&
-          !content.includes("cannot write") &&
-          !content.includes("titles and metadata")
-        ) {
-          alertSections.push({ source: feed.name, content, priority: feed.priority || "medium" });
-        }
+      if (items.length === 0) {
+        outcome.status = "no_items_in_window";
+        feedOutcomes.push(outcome);
+        continue;
       }
+
+      let content;
+      try {
+        content = await summariseWithClaude(items, feed.name);
+      } catch (aiErr) {
+        outcome.status = "claude_error";
+        outcome.detail = aiErr.message;
+        feedOutcomes.push(outcome);
+        await logFeedError(runId, feed, new Error(`Anthropic: ${aiErr.message}`));
+        continue;
+      }
+
+      const skipDigest =
+        content.includes("No employer-relevant updates") ||
+        content.includes("insufficient information") ||
+        content.includes("cannot write") ||
+        content.includes("titles and metadata");
+
+      if (skipDigest) {
+        outcome.status = "claude_no_employer_relevant";
+        feedOutcomes.push(outcome);
+        continue;
+      }
+
+      alertSections.push({ source: feed.name, content, priority: feed.priority || "medium" });
+      outcome.inDigest = true;
+      outcome.status = "in_digest";
+      feedOutcomes.push(outcome);
     } catch (err) {
+      outcome.status = "fetch_or_parse_error";
+      outcome.detail = err.message;
+      feedOutcomes.push(outcome);
       await logFeedError(runId, feed, err);
     }
   }
@@ -533,7 +607,15 @@ exports.handler = async function () {
       runId,
       mode: isQuietDay ? "quiet_day" : "digest",
       sections: alertSections.length,
-      feeds: alertSections.map(s => s.source),
+      feedsInDigest: alertSections.map(s => s.source),
+      feedOutcomes,
+      summary: {
+        attempted: feedOutcomes.length,
+        inDigest: feedOutcomes.filter((o) => o.inDigest).length,
+        errors: feedOutcomes.filter((o) => o.status === "fetch_or_parse_error" || o.status === "claude_error").length,
+        noItemsInWindow: feedOutcomes.filter((o) => o.status === "no_items_in_window").length,
+        claudeSkipped: feedOutcomes.filter((o) => o.status === "claude_no_employer_relevant").length,
+      },
     }),
   };
 };
