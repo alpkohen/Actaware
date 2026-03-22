@@ -182,6 +182,7 @@ exports.handler = async function (event) {
       trial_ends_at: trialEnds.toISOString(),
       stripe_customer_id: null,
       stripe_subscription_id: null,
+      seat_limit: 1,
     };
 
     if (existingSub) {

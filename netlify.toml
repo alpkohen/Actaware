@@ -21,3 +21,7 @@
 # Hourly trigger; the function only runs the job when local time is 08:00 in Europe/London (GMT/BST).
 [functions."send-alerts-background"]
   schedule = "0 * * * *"
+
+# Every 2 hours: CRITICAL-only supplemental emails for Professional / Agency (~24h window).
+[functions."send-critical-alerts-background"]
+  schedule = "15 */2 * * *"

@@ -1,7 +1,6 @@
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
-const https = require("https");
-const http = require("http");
+const { RSS_FEEDS, fetchRSS, parseRSSItems } = require("./lib/employer-feeds");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -9,194 +8,26 @@ const supabase = createClient(
 );
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ── ALL VERIFIED RSS/ATOM SOURCES ──────────────────────────────────────────
-const RSS_FEEDS = [
-  // ── CATEGORY 1: GOV.UK Core Employer Feeds ──
-  {
-    name: "GOV.UK — Employment Rights Act 2025",
-    url: "https://www.gov.uk/search/all.atom?keywords=employment+rights+act&organisations%5B%5D=department-for-business-and-trade",
-    priority: "critical",
-  },
-  {
-    name: "GOV.UK — Employment Consultations (Make Work Pay)",
-    url: "https://www.gov.uk/search/policy-papers-and-consultations.atom?topics%5B%5D=employment",
-    priority: "high",
-  },
-  {
-    name: "GOV.UK — HMRC Employer Guidance",
-    url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=hm-revenue-customs&keywords=employer",
-    priority: "high",
-  },
-  {
-    name: "GOV.UK — National Minimum Wage Updates",
-    url: "https://www.gov.uk/search/all.atom?keywords=national+minimum+wage&organisations%5B%5D=department-for-business-and-trade",
-    priority: "high",
-  },
-  {
-    name: "GOV.UK — Fair Work Agency",
-    url: "https://www.gov.uk/search/all.atom?keywords=fair+work+agency",
-    priority: "high",
-  },
-  {
-    name: "GOV.UK — Statutory Pay (SSP/SMP/SPP)",
-    url: "https://www.gov.uk/search/all.atom?keywords=statutory+sick+pay+statutory+maternity+pay",
-    priority: "medium",
-  },
-  {
-    name: "GOV.UK — DBT Employer News",
-    url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=department-for-business-and-trade",
-    priority: "medium",
-  },
-  {
-    name: "GOV.UK — Data Protection (ICO via GOV.UK)",
-    url: "https://www.gov.uk/search/all.atom?keywords=data+protection+employer&organisations%5B%5D=information-commissioner-s-office",
-    priority: "medium",
-  },
-  // ── CATEGORY 2: Legislation.gov.uk — ERA 2025 Statutory Instruments ──
-  {
-    name: "Legislation.gov.uk — New Statutory Instruments (ERA 2025)",
-    // /new/uksi/data.feed returns 404 from some servers; canonical feed is uksi + sort=published
-    url: "https://www.legislation.gov.uk/uksi/data.feed?sort=published",
-    priority: "critical",
-    // Any SI matching one of these (title/summary) is kept; avoids missing employer-relevant law that omits the word "employment"
-    filterKeywords: [
-      "employment",
-      "employer",
-      "employee",
-      "wage",
-      "pension",
-      "statutory",
-      "redundan",
-      "dismiss",
-      "tribunal",
-      "maternity",
-      "paternity",
-      "holiday",
-      "leave",
-      "discrimina",
-      "worker",
-      "national insurance",
-      "minimum wage",
-      "agency worker",
-      "fixed-term",
-      "whistleblow",
-      "transfer of undertakings",
-      "tupe",
-    ],
-  },
-  // ── CATEGORY 2: Employment Tribunal Decisions ──
-  // Feed returns titles only — we send to Claude regardless; AI decides relevance.
-  {
-    name: "Employment Tribunal — ERA 2025 Case Decisions",
-    url: "https://www.gov.uk/employment-tribunal-decisions.atom?keywords=Employment+Rights+Act+2025",
-    priority: "high",
-  },
-  // ── CATEGORY 3: Pensions Regulator ──
-  {
-    name: "Pensions Regulator — Employer Auto-Enrolment",
-    url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=the-pensions-regulator&keywords=employer+auto-enrolment",
-    priority: "medium",
-  },
-  // ── CATEGORY 3: HSE ──
-  {
-    name: "HSE — Health & Safety at Work",
-    url: "https://press.hse.gov.uk/feed/",
-    priority: "medium",
-  },
-];
+/**
+ * @param {"standard" | "professional"} digestTier - Professional adds governance, timeline, cross-checks (matches pricing page).
+ */
+async function summariseWithClaude(items, sourceName, digestTier = "standard") {
+  const proBlocks =
+    digestTier === "professional"
+      ? `
+- This digest is for **Professional / Agency** subscribers. For each relevant update, AFTER "Risk if ignored" and BEFORE "Source:", add these exact headings and content:
+**Severity rationale:** [1–2 sentences — why this importance level for a typical UK employer]
+**Governance & ownership:** [which teams usually own remediation — HR, Payroll, H&S, Legal, etc.]
+**Suggested timeline:** [concrete window, e.g. before next payroll, within 14 days, immediate for CRITICAL]
+**Cross-checks:** [2–4 bullets — handbook, contracts, policies, or registers to review]
+`
+      : "";
 
-/** Fetch Atom/RSS with browser-like headers (Legislation.gov.uk and others may 404 bare Node clients). */
-async function fetchRSS(urlString) {
-  return new Promise((resolve, reject) => {
-    function doRequest(currentUrl) {
-      let parsed;
-      try {
-        parsed = new URL(currentUrl);
-      } catch {
-        reject(new Error(`Invalid URL: ${currentUrl}`));
-        return;
-      }
-      const isHttp = parsed.protocol === "http:";
-      const client = isHttp ? http : https;
-      const options = {
-        hostname: parsed.hostname,
-        port: parsed.port || (isHttp ? 80 : 443),
-        path: `${parsed.pathname}${parsed.search}`,
-        method: "GET",
-        timeout: 20000,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; ActAware/1.0; UK employer alerts; +https://actaware.co.uk)",
-          Accept: "application/atom+xml,application/xml,text/xml;q=0.9,*/*;q=0.8",
-        },
-      };
-
-      const req = client.request(options, (res) => {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          const loc = res.headers.location.trim();
-          const next = /^https?:\/\//i.test(loc) ? loc : new URL(loc, currentUrl).href;
-          doRequest(next);
-          return;
-        }
-        if (res.statusCode >= 400) {
-          reject(new Error(`HTTP ${res.statusCode}`));
-          return;
-        }
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => resolve(data));
-        res.on("error", reject);
-      });
-      req.on("error", reject);
-      req.on("timeout", () => {
-        req.destroy();
-        reject(new Error("Timeout"));
-      });
-      req.end();
-    }
-    doRequest(urlString);
-  });
-}
-
-/** @param {string|string[]|null} filterSpec - string, or array (match if ANY substring matches title+summary) */
-function matchesFeedFilter(textLc, filterSpec) {
-  if (!filterSpec) return true;
-  const keys = Array.isArray(filterSpec) ? filterSpec : [filterSpec];
-  return keys.some((k) => textLc.includes(String(k).toLowerCase()));
-}
-
-// Returns all matching items from the feed XML — caller filters by date window.
-function parseRSSItems(xml, filterSpec = null) {
-  const items = [];
-  const entryRegex = /<entry>([\s\S]*?)<\/entry>|<item>([\s\S]*?)<\/item>/g;
-  let match;
-  while ((match = entryRegex.exec(xml)) !== null) {
-    const block = match[1] || match[2];
-    const title = (block.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/) || [])[1] || "";
-    const summary = (block.match(/<summary[^>]*>([\s\S]*?)<\/summary>/) || block.match(/<description>([\s\S]*?)<\/description>/) || [])[1] || "";
-    const link = (block.match(/<link[^>]*href="([^"]*)"/) || block.match(/<link>([\s\S]*?)<\/link>/) || [])[1] || "";
-    const published = (block.match(/<published>([\s\S]*?)<\/published>/) || block.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || block.match(/<updated>([\s\S]*?)<\/updated>/) || [])[1] || "";
-    const cleanTitle = title.replace(/<[^>]+>/g, "").trim();
-    if (!cleanTitle) continue;
-    const lc = cleanTitle.toLowerCase() + summary.toLowerCase();
-    if (!matchesFeedFilter(lc, filterSpec)) continue;
-    items.push({
-      title: cleanTitle,
-      summary: summary.replace(/<[^>]+>/g, "").trim().substring(0, 600),
-      link: link.trim(),
-      published: published.trim(),
-    });
-  }
-  // No slice — return every item that passes the keyword filter.
-  return items;
-}
-
-async function summariseWithClaude(items, sourceName) {
   const prompt = `You are a UK employment law compliance expert writing employer alert emails for UK employers.
 
 Source: ${sourceName}
 ---
-${items.map((i, idx) => `[${idx + 1}] Title: ${i.title}\nPublished: ${i.published || 'recent'}\nContent: ${i.summary}\nURL: ${i.link}`).join("\n\n")}
+${items.map((i, idx) => `[${idx + 1}] Title: ${i.title}\nPublished: ${i.published || "recent"}\nContent: ${i.summary}\nURL: ${i.link}`).join("\n\n")}
 ---
 RULES:
 - Write clear, practical, plain-English guidance for UK employers.
@@ -212,7 +43,7 @@ What employers must do:
 - [specific action]
 - [specific action]
 Risk if ignored: [consequence for employers]
-Source: [URL]`;
+Source: [URL]${proBlocks}`;
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -222,7 +53,7 @@ Source: [URL]`;
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1500,
+      max_tokens: digestTier === "professional" ? 2600 : 1500,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -267,6 +98,101 @@ async function getActiveUsers() {
   return [...byUser.values()];
 }
 
+function usesProfessionalDigest(plan) {
+  return plan === "professional" || plan === "agency";
+}
+
+/**
+ * Fetch all feeds, run Claude per feed for one digest tier. Returns sections + outcomes for logging.
+ */
+async function buildDigestSections(runId, cutoff, digestTier, forceQuietDayPreview) {
+  const alertSections = [];
+  const feedOutcomes = [];
+
+  if (forceQuietDayPreview) {
+    feedOutcomes.push({
+      feed: "(preview — feeds skipped)",
+      itemsInWindow: 0,
+      inDigest: false,
+      status: "force_quiet_day_preview",
+      detail: null,
+      digestTier,
+    });
+    return { alertSections, feedOutcomes };
+  }
+
+  for (const feed of RSS_FEEDS) {
+    const filterSpec = feed.filterKeywords || feed.filterKeyword || null;
+    const outcome = {
+      feed: feed.name,
+      itemsInWindow: 0,
+      inDigest: false,
+      status: "pending",
+      detail: null,
+      digestTier,
+    };
+
+    try {
+      const xml = await fetchRSS(feed.url);
+      const allItems = parseRSSItems(xml, filterSpec);
+      const items = allItems.filter((item) => {
+        if (!item.published) return false;
+        const d = new Date(item.published);
+        return !isNaN(d) && d.getTime() >= cutoff;
+      });
+
+      outcome.itemsInWindow = items.length;
+      console.log(`[${digestTier}] Feed "${feed.name}": ${items.length} items (36h window)`);
+
+      await logRawFeed(runId, feed, items);
+
+      if (items.length === 0) {
+        outcome.status = "no_items_in_window";
+        feedOutcomes.push(outcome);
+        continue;
+      }
+
+      let content;
+      try {
+        content = await summariseWithClaude(items, feed.name, digestTier);
+      } catch (aiErr) {
+        outcome.status = "claude_error";
+        outcome.detail = aiErr.message;
+        feedOutcomes.push(outcome);
+        await logFeedError(runId, feed, new Error(`Anthropic: ${aiErr.message}`));
+        continue;
+      }
+
+      const skipDigest =
+        content.includes("No employer-relevant updates") ||
+        content.includes("insufficient information") ||
+        content.includes("cannot write") ||
+        content.includes("titles and metadata");
+
+      if (skipDigest) {
+        outcome.status = "claude_no_employer_relevant";
+        feedOutcomes.push(outcome);
+        continue;
+      }
+
+      alertSections.push({ source: feed.name, content, priority: feed.priority || "medium" });
+      outcome.inDigest = true;
+      outcome.status = "in_digest";
+      feedOutcomes.push(outcome);
+    } catch (err) {
+      outcome.status = "fetch_or_parse_error";
+      outcome.detail = err.message;
+      feedOutcomes.push(outcome);
+      await logFeedError(runId, feed, err);
+    }
+  }
+
+  const priorityOrder = { critical: 0, high: 1, medium: 2 };
+  alertSections.sort((a, b) => (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2));
+
+  return { alertSections, feedOutcomes };
+}
+
 // ── Audit: log raw parsed items to Supabase before Claude sees them ──────────
 async function logRawFeed(runId, feed, items) {
   const { error } = await supabase.from("raw_feed_logs").insert({
@@ -305,6 +231,22 @@ async function logFeedError(runId, feed, err) {
   }
 }
 
+/** Pull **Field name:** value until next **Heading or Source: */
+function extractMarkdownField(block, fieldName) {
+  const marker = `**${fieldName}:**`;
+  const idx = block.indexOf(marker);
+  if (idx === -1) return "";
+  let pos = idx + marker.length;
+  while (pos < block.length && /[\s\n\r]/.test(block[pos])) pos++;
+  const rest = block.slice(pos);
+  const stopBold = rest.search(/\n\*\*[A-Za-z]/);
+  const src = rest.search(/\nSource:\s*/i);
+  let cut = rest.length;
+  if (stopBold >= 0) cut = Math.min(cut, stopBold);
+  if (src >= 0) cut = Math.min(cut, src);
+  return rest.slice(0, cut).trim();
+}
+
 function parseAlertsFromText(text, sourceName) {
   const alertBlocks = [];
   const parts = text.split(/(?=\*\*[^\n]+\*\*\s*\(Importance:)/i);
@@ -319,7 +261,7 @@ function parseAlertsFromText(text, sourceName) {
     const whatChanged = changedMatch ? changedMatch[1].trim() : "";
     const actionsMatch = trimmed.match(/What employers must do:\s*\n((?:\s*-[^\n]+\n?)+)/i);
     const actions = actionsMatch
-      ? actionsMatch[1].split("\n").map(l => l.replace(/^\s*-\s*/, "").trim()).filter(Boolean)
+      ? actionsMatch[1].split("\n").map((l) => l.replace(/^\s*-\s*/, "").trim()).filter(Boolean)
       : [];
     const publishedMatch = trimmed.match(/Published:\s*([^\n]+)/i);
     const published = publishedMatch ? publishedMatch[1].trim() : "";
@@ -327,8 +269,25 @@ function parseAlertsFromText(text, sourceName) {
     const risk = riskMatch ? riskMatch[1].trim() : "";
     const sourceMatch = trimmed.match(/Source:\s*(https?:\/\/[^\s]+)/i);
     const sourceUrl = sourceMatch ? sourceMatch[1].trim() : "";
+    const severityRationale = extractMarkdownField(trimmed, "Severity rationale");
+    const governanceOwnership = extractMarkdownField(trimmed, "Governance & ownership");
+    const suggestedTimeline = extractMarkdownField(trimmed, "Suggested timeline");
+    const crossChecks = extractMarkdownField(trimmed, "Cross-checks");
     if (title || whatChanged) {
-      alertBlocks.push({ importance, title, published, whatChanged, actions, risk, sourceUrl, sourceName });
+      alertBlocks.push({
+        importance,
+        title,
+        published,
+        whatChanged,
+        actions,
+        risk,
+        sourceUrl,
+        sourceName,
+        severityRationale,
+        governanceOwnership,
+        suggestedTimeline,
+        crossChecks,
+      });
     }
   }
   return alertBlocks;
@@ -346,9 +305,24 @@ function importanceBadgeHTML(importance) {
 }
 
 function buildAlertCardHTML(alert) {
-  const actionsHTML = alert.actions.length > 0
-    ? `<ul style="margin:6px 0 0 18px;color:#4b5563;line-height:1.8;padding:0 0 0 4px;">${alert.actions.map(a => `<li style="margin-bottom:4px;font-size:14px;">${a}</li>`).join("")}</ul>`
-    : "";
+  const actionsHTML =
+    alert.actions.length > 0
+      ? `<ul style="margin:6px 0 0 18px;color:#4b5563;line-height:1.8;padding:0 0 0 4px;">${alert.actions.map((a) => `<li style="margin-bottom:4px;font-size:14px;">${a}</li>`).join("")}</ul>`
+      : "";
+  const proBits = [
+    alert.severityRationale &&
+      `<p style="margin:10px 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Severity rationale:</strong> ${alert.severityRationale}</p>`,
+    alert.governanceOwnership &&
+      `<p style="margin:0 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Governance & ownership:</strong> ${alert.governanceOwnership}</p>`,
+    alert.suggestedTimeline &&
+      `<p style="margin:0 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Suggested timeline:</strong> ${alert.suggestedTimeline}</p>`,
+    alert.crossChecks &&
+      `<p style="margin:0 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Cross-checks:</strong><br>${alert.crossChecks.replace(/\n/g, "<br>")}</p>`,
+  ].filter(Boolean);
+  const proHTML =
+    proBits.length > 0
+      ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed #cbd5e1;">${proBits.join("")}</div>`
+      : "";
   return `
     <div style="background:#f8f9fa;border:1px solid #e5e7eb;border-radius:8px;padding:18px 20px;margin-bottom:14px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;margin-bottom:8px;">${alert.sourceName}</div>
@@ -358,7 +332,8 @@ function buildAlertCardHTML(alert) {
       ${alert.whatChanged ? `<p style="margin:0 0 10px;font-size:14px;color:#4b5563;line-height:1.6;"><strong style="color:#111827;">What changed:</strong> ${alert.whatChanged}</p>` : ""}
       ${alert.actions.length > 0 ? `<p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#111827;">What employers must do:</p>${actionsHTML}` : ""}
       ${alert.risk ? `<p style="margin:10px 0 8px;font-size:14px;color:#4b5563;"><strong style="color:#111827;">Risk if ignored:</strong> ${alert.risk}</p>` : ""}
-      ${alert.sourceUrl ? `<p style="margin:0;font-size:12px;color:#9ca3af;">Source: <a href="${alert.sourceUrl}" style="color:#6366f1;text-decoration:none;">${alert.sourceUrl}</a></p>` : ""}
+      ${proHTML}
+      ${alert.sourceUrl ? `<p style="margin:12px 0 0;font-size:12px;color:#9ca3af;">Source: <a href="${alert.sourceUrl}" style="color:#6366f1;text-decoration:none;">${alert.sourceUrl}</a></p>` : ""}
     </div>
   `;
 }
@@ -544,92 +519,42 @@ exports.handler = async function () {
   // ~36 hours: “yesterday” plus timezone / feed-delay slack. Daily run avoids re-sending stale undated items.
   const cutoff = Date.now() - 36 * 60 * 60 * 1000;
 
-  const alertSections = [];
-  /** Per-feed outcome for Netlify logs + API response — proves all 12 sources were attempted */
+  const baseUsers = await getActiveUsers();
+  if (baseUsers.length === 0 && !testRun && !forceQuietDayPreview && !testEmailOnly) {
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ skipped: true, reason: "No active subscribers" }),
+    };
+  }
+
+  const needProfessionalDigest =
+    baseUsers.some((u) => usesProfessionalDigest(u.plan)) || testRun || forceQuietDayPreview;
+  const needStandardDigest =
+    baseUsers.some((u) => !usesProfessionalDigest(u.plan)) || testRun || forceQuietDayPreview;
+
+  let sectionsStandard = [];
+  let sectionsProfessional = [];
+  /** Per-feed outcomes (may include both standard + professional tier runs) */
   const feedOutcomes = [];
 
-  if (!forceQuietDayPreview) {
-  for (const feed of RSS_FEEDS) {
-    const filterSpec = feed.filterKeywords || feed.filterKeyword || null;
-    const outcome = {
-      feed: feed.name,
-      itemsInWindow: 0,
-      inDigest: false,
-      status: "pending",
-      detail: null,
-    };
-
-    try {
-      const xml = await fetchRSS(feed.url);
-      const allItems = parseRSSItems(xml, filterSpec);
-      const items = allItems.filter(item => {
-        if (!item.published) return false;
-        const d = new Date(item.published);
-        return !isNaN(d) && d.getTime() >= cutoff;
-      });
-
-      outcome.itemsInWindow = items.length;
-      console.log(`Feed "${feed.name}": ${items.length} items (36h window)`);
-
-      await logRawFeed(runId, feed, items);
-
-      if (items.length === 0) {
-        outcome.status = "no_items_in_window";
-        feedOutcomes.push(outcome);
-        continue;
-      }
-
-      let content;
-      try {
-        content = await summariseWithClaude(items, feed.name);
-      } catch (aiErr) {
-        outcome.status = "claude_error";
-        outcome.detail = aiErr.message;
-        feedOutcomes.push(outcome);
-        await logFeedError(runId, feed, new Error(`Anthropic: ${aiErr.message}`));
-        continue;
-      }
-
-      const skipDigest =
-        content.includes("No employer-relevant updates") ||
-        content.includes("insufficient information") ||
-        content.includes("cannot write") ||
-        content.includes("titles and metadata");
-
-      if (skipDigest) {
-        outcome.status = "claude_no_employer_relevant";
-        feedOutcomes.push(outcome);
-        continue;
-      }
-
-      alertSections.push({ source: feed.name, content, priority: feed.priority || "medium" });
-      outcome.inDigest = true;
-      outcome.status = "in_digest";
-      feedOutcomes.push(outcome);
-    } catch (err) {
-      outcome.status = "fetch_or_parse_error";
-      outcome.detail = err.message;
-      feedOutcomes.push(outcome);
-      await logFeedError(runId, feed, err);
-    }
+  if (needStandardDigest) {
+    const r = await buildDigestSections(runId, cutoff, "standard", forceQuietDayPreview);
+    sectionsStandard = r.alertSections;
+    feedOutcomes.push(...r.feedOutcomes);
   }
-  } else {
-    feedOutcomes.push({
-      feed: "(preview — feeds skipped)",
-      itemsInWindow: 0,
-      inDigest: false,
-      status: "force_quiet_day_preview",
-      detail: null,
-    });
+  if (needProfessionalDigest) {
+    const r = await buildDigestSections(runId, cutoff, "professional", forceQuietDayPreview);
+    sectionsProfessional = r.alertSections;
+    feedOutcomes.push(...r.feedOutcomes);
+  }
+
+  if (forceQuietDayPreview) {
     console.log("FORCE_QUIET_DAY_EMAIL: skipping RSS/Claude; sending quiet-day template only");
   }
 
-  const priorityOrder = { critical: 0, high: 1, medium: 2 };
-  alertSections.sort((a, b) => (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2));
-
   const mailTestPrefix = testRun || forceQuietDayPreview ? "[TEST] " : "";
 
-  let users = await getActiveUsers();
+  let users = baseUsers;
   if (testEmailOnly) {
     const match = users.find(
       (u) => u.users?.email?.toLowerCase() === testEmailOnly.toLowerCase()
@@ -640,10 +565,14 @@ exports.handler = async function () {
   }
 
   let sentCount = 0;
-  const isQuietDay = alertSections.length === 0;
 
   for (const sub of users) {
     try {
+      const pro = usesProfessionalDigest(sub.plan);
+      const alertSections = pro ? sectionsProfessional : sectionsStandard;
+      const digestLabel = pro ? "professional" : "standard";
+      const isQuietDay = alertSections.length === 0;
+
       if (isQuietDay) {
         const html = buildQuietDayEmailHTML(sub.users.company_name, dateLabel);
         await resend.emails.send({
@@ -666,10 +595,11 @@ exports.handler = async function () {
         }
       } else {
         const html = buildEmailHTML(sub.users.company_name, alertSections, dateLabel);
+        const subjPro = pro ? " [Professional]" : "";
         await resend.emails.send({
           from: "ActAware <onboarding@resend.dev>",
           to: sub.users.email,
-          subject: `${mailTestPrefix}UK Employer Compliance — ${shortDate}`,
+          subject: `${mailTestPrefix}UK Employer Compliance${subjPro} — ${shortDate}`,
           html,
           click_tracking: false,
           open_tracking: false,
@@ -677,10 +607,10 @@ exports.handler = async function () {
         if (sub.user_id) {
           await supabase.from("sent_alerts").insert({
             user_id: sub.user_id,
-            alert_title: `Daily UK Employer Compliance — ${shortDate}`,
-            alert_summary: alertSections.map(s => `[${s.source}] ${s.content}`).join("\n\n").substring(0, 500),
-            alert_source: alertSections.map(s => s.source).join(", "),
-            importance: alertSections.some(s => s.priority === "critical") ? "critical" : "high",
+            alert_title: `Daily UK Employer Compliance (${digestLabel}) — ${shortDate}`,
+            alert_summary: alertSections.map((s) => `[${s.source}] ${s.content}`).join("\n\n").substring(0, 500),
+            alert_source: alertSections.map((s) => s.source).join(", "),
+            importance: alertSections.some((s) => s.priority === "critical") ? "critical" : "high",
           });
         }
       }
@@ -690,19 +620,26 @@ exports.handler = async function () {
     }
   }
 
+  const globalQuiet =
+    sectionsStandard.length === 0 && sectionsProfessional.length === 0;
+
   return {
     statusCode: 202,
     body: JSON.stringify({
       testRun,
       forceQuietDayPreview,
       testEmailOnly: testEmailOnly || null,
-      message: isQuietDay
+      message: globalQuiet
         ? `Sent ${sentCount} quiet-day check-ins`
         : `Sent ${sentCount} digest emails`,
       runId,
-      mode: isQuietDay ? "quiet_day" : "digest",
-      sections: alertSections.length,
-      feedsInDigest: alertSections.map(s => s.source),
+      mode: globalQuiet ? "quiet_day" : "digest",
+      digestSections: {
+        standard: sectionsStandard.length,
+        professional: sectionsProfessional.length,
+      },
+      feedsInDigestStandard: sectionsStandard.map((s) => s.source),
+      feedsInDigestProfessional: sectionsProfessional.map((s) => s.source),
       feedOutcomes,
       summary: {
         attempted: feedOutcomes.length,

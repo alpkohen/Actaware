@@ -19,6 +19,7 @@ exports.handler = async function (event) {
     try {
       const { data: user, error: uErr } = await supabase.from("users").upsert({ email }, { onConflict: "email", ignoreDuplicates: false }).select("id").single();
       if (uErr) throw uErr;
+      const seatLimit = plan === "professional" ? 3 : plan === "agency" ? 15 : 1;
       const subPayload = {
         user_id: user.id,
         stripe_customer_id: session.customer,
@@ -26,6 +27,7 @@ exports.handler = async function (event) {
         plan,
         status: "active",
         trial_ends_at: null,
+        seat_limit: seatLimit,
       };
       const { data: existingSub } = await supabase.from("subscriptions").select("id").eq("user_id", user.id).maybeSingle();
       const { error: sErr } = existingSub

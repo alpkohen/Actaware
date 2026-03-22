@@ -30,6 +30,27 @@ SQL Editor’da çalıştırın:
 - Fiyat ID’leri `register-and-checkout.js` içinde tanımlı (`PLAN_PRICE_IDS`); Stripe’da değişirsen burayı güncelle.
 - Eski **`create-checkout-session`** doğrudan siteden artık kullanılmıyor; istersen başka entegrasyonlar için bırakılabilir.
 
+## Professional / Agency — ürün vaadi vs kod
+
+| Özellik | Durum |
+|--------|--------|
+| Günlük özet + **genişletilmiş analiz** (severity, governance, timeline, cross-checks) | ✅ `send-alerts-background` — Professional/Agency için ayrı Claude çağrısı (`digestTier: professional`) |
+| **24 saat içinde CRITICAL** ek e-posta | ✅ `send-critical-alerts-background` — 2 saatte bir cron, son ~24 saat, yalnız CRITICAL; `sent_alerts` ile 36 saat dedupe |
+| **seat_limit** (Starter 1, Pro 3, Agency 15) | ✅ Stripe webhook + migration; çoklu kullanıcı davet UI henüz yok |
+| Slack / Teams | ❌ Henüz yok (roadmap) |
+
+### Supabase
+
+- `supabase/migrations/20260324120000_subscriptions_seat_limit.sql` — `subscriptions.seat_limit`
+
+### Netlify
+
+| Değişken | Açıklama |
+|----------|-----------|
+| `CRITICAL_ALERTS_DISABLED` | `true` ise kritik pulse fonksiyonu hiç çalışmaz (maliyet kesmek için) |
+
+Zamanlama: `netlify.toml` içinde `send-critical-alerts-background` → **`15 */2 * * *`** (UTC, yaklaşık 2 saatte bir).
+
 ## Supabase: audit tabloları
 
 `send-alerts-background` fonksiyonu iki tabloya yazar:
@@ -47,6 +68,7 @@ SQL Editor’da çalıştırın:
    - `supabase/migrations/20260321120000_raw_feed_logs_and_feed_fetch_errors.sql`
    - `supabase/migrations/20260322120000_users_profile_and_trial.sql` *(ücretsiz deneme + profil kolonları)*
    - `supabase/migrations/20260323120000_subscriptions_plan_check_trial.sql` *(plan kolonunda `trial` izni — trial kaydı hatası alıyorsan)*
+   - `supabase/migrations/20260324120000_subscriptions_seat_limit.sql` *(koltuk limiti)*
 4. **Table Editor**’da tabloların oluştuğunu doğrulayın.
 
 > Tablolar yoksa fonksiyon çalışırken insert hataları log’a düşer; mail akışı diğer feed’lerle devam edebilir ama denetim/hata kaydı eksik kalır.
@@ -126,5 +148,7 @@ Bu sınırlar dışında, fetch/parse hatası olursa kayıt **`feed_fetch_errors
 - `netlify/functions/send-alerts-background.js` — günlük tarama ve mail
 - `netlify/functions/register-trial.js` — ücretsiz deneme kaydı
 - `netlify/functions/register-and-checkout.js` — ücretli plan formu → Stripe veya Agency mailto
+- `netlify/functions/send-critical-alerts-background.js` — Professional/Agency CRITICAL pulse (~24 saat)
+- `netlify/functions/lib/employer-feeds.js` — paylaşılan RSS listesi + fetch/parse
 - `netlify/functions/create-checkout-session.js`, `stripe-webhook.js` — abonelik (checkout esas olarak `register-and-checkout` üzerinden)
 - `netlify/functions/dashboard-alerts.js` — alert geçmişi

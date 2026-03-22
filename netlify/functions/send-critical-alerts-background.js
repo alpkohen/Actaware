@@ -1,0 +1,359 @@
+/**
+ * Professional / Agency: supplemental emails when Claude flags CRITICAL employer updates
+ * within ~24h of publication (between daily 08:00 digests). Scheduled every 2 hours.
+ *
+ * Set CRITICAL_ALERTS_DISABLED=true to turn off (saves Resend + Anthropic).
+ */
+const { createClient } = require("@supabase/supabase-js");
+const Resend = require("resend").Resend;
+const { RSS_FEEDS, fetchRSS, parseRSSItems } = require("./lib/employer-feeds");
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+const PLAN_RANK = { agency: 4, professional: 3, starter: 2, trial: 1 };
+
+async function getProAgencyUsers() {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select(
+      "user_id, plan, trial_ends_at, stripe_subscription_id, users(email, company_name)"
+    )
+    .eq("status", "active")
+    .in("plan", ["professional", "agency"]);
+  if (error) throw error;
+  const rows = data || [];
+  const byUser = new Map();
+  for (const row of rows) {
+    const prev = byUser.get(row.user_id);
+    const r = PLAN_RANK[row.plan] || 0;
+    const pr = prev ? PLAN_RANK[prev.plan] || 0 : -1;
+    if (!prev || r > pr) byUser.set(row.user_id, row);
+  }
+  return [...byUser.values()].filter((r) => r.plan === "professional" || r.plan === "agency");
+}
+
+async function summariseCriticalOnly(items, sourceName) {
+  const prompt = `You are a UK employment law compliance expert. Source: ${sourceName}
+
+Items (last ~24 hours):
+---
+${items.map((i, idx) => `[${idx + 1}] Title: ${i.title}\nPublished: ${i.published || "recent"}\nContent: ${i.summary}\nURL: ${i.link}`).join("\n\n")}
+---
+
+TASK: Respond ONLY if at least one item is **CRITICAL** for UK employers (e.g. imminent legal deadline, NLW breach risk, immediate H&S enforcement, statutory change in force within days). Routine consultations or LOW/MEDIUM items must be ignored here.
+
+If NOTHING is CRITICAL, respond with exactly this single line:
+NO_CRITICAL_EMPLOYER_UPDATES
+
+If there ARE critical items, use the SAME format as daily digests for EACH critical item only:
+
+**[Title]** (Importance: CRITICAL)
+Published: [date]
+What changed: [1 sentence]
+What employers must do:
+- [action]
+- [action]
+Risk if ignored: [consequence]
+**Severity rationale:** [1 sentence]
+**Governance & ownership:** [teams]
+**Suggested timeline:** [immediate / before next payroll / within 7 days]
+**Cross-checks:** [2 bullets]
+Source: [URL]
+
+No HIGH or MEDIUM items. CRITICAL only.`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`Anthropic HTTP ${response.status}: ${JSON.stringify(data).slice(0, 500)}`);
+  }
+  const text = data?.content?.[0]?.text;
+  if (typeof text !== "string" || !text.trim()) {
+    throw new Error("Anthropic empty content");
+  }
+  return text;
+}
+
+function extractMarkdownField(block, fieldName) {
+  const marker = `**${fieldName}:**`;
+  const idx = block.indexOf(marker);
+  if (idx === -1) return "";
+  let pos = idx + marker.length;
+  while (pos < block.length && /[\s\n\r]/.test(block[pos])) pos++;
+  const rest = block.slice(pos);
+  const stopBold = rest.search(/\n\*\*[A-Za-z]/);
+  const src = rest.search(/\nSource:\s*/i);
+  let cut = rest.length;
+  if (stopBold >= 0) cut = Math.min(cut, stopBold);
+  if (src >= 0) cut = Math.min(cut, src);
+  return rest.slice(0, cut).trim();
+}
+
+function parseAlertsFromText(text, sourceName) {
+  const alertBlocks = [];
+  const parts = text.split(/(?=\*\*[^\n]+\*\*\s*\(Importance:)/i);
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed || trimmed.length < 20) continue;
+    const impMatch = trimmed.match(/\(Importance:\s*(CRITICAL|HIGH|MEDIUM|LOW)\)/i);
+    const importance = impMatch ? impMatch[1].toUpperCase() : "";
+    if (importance !== "CRITICAL") continue;
+    const titleMatch = trimmed.match(/\*\*([^\*]+)\*\*/);
+    const title = titleMatch ? titleMatch[1].trim() : "";
+    const changedMatch = trimmed.match(/What changed:\s*([^\n]+)/i);
+    const whatChanged = changedMatch ? changedMatch[1].trim() : "";
+    const actionsMatch = trimmed.match(/What employers must do:\s*\n((?:\s*-[^\n]+\n?)+)/i);
+    const actions = actionsMatch
+      ? actionsMatch[1].split("\n").map((l) => l.replace(/^\s*-\s*/, "").trim()).filter(Boolean)
+      : [];
+    const publishedMatch = trimmed.match(/Published:\s*([^\n]+)/i);
+    const published = publishedMatch ? publishedMatch[1].trim() : "";
+    const riskMatch = trimmed.match(/Risk if ignored:\s*([^\n]+)/i);
+    const risk = riskMatch ? riskMatch[1].trim() : "";
+    const sourceMatch = trimmed.match(/Source:\s*(https?:\/\/[^\s]+)/i);
+    const sourceUrl = sourceMatch ? sourceMatch[1].trim() : "";
+    const severityRationale = extractMarkdownField(trimmed, "Severity rationale");
+    const governanceOwnership = extractMarkdownField(trimmed, "Governance & ownership");
+    const suggestedTimeline = extractMarkdownField(trimmed, "Suggested timeline");
+    const crossChecks = extractMarkdownField(trimmed, "Cross-checks");
+    if (title) {
+      alertBlocks.push({
+        importance,
+        title,
+        published,
+        whatChanged,
+        actions,
+        risk,
+        sourceUrl,
+        sourceName,
+        severityRationale,
+        governanceOwnership,
+        suggestedTimeline,
+        crossChecks,
+      });
+    }
+  }
+  return alertBlocks;
+}
+
+function importanceBadgeHTML(importance) {
+  return `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;text-transform:uppercase;">${importance}</span>`;
+}
+
+function buildAlertCardHTML(alert) {
+  const actionsHTML =
+    alert.actions.length > 0
+      ? `<ul style="margin:6px 0 0 18px;color:#4b5563;line-height:1.8;">${alert.actions.map((a) => `<li style="font-size:14px;">${a}</li>`).join("")}</ul>`
+      : "";
+  const proBits = [
+    alert.severityRationale &&
+      `<p style="margin:10px 0 6px;font-size:13px;color:#374151;"><strong>Severity rationale:</strong> ${alert.severityRationale}</p>`,
+    alert.governanceOwnership &&
+      `<p style="margin:0 0 6px;font-size:13px;"><strong>Governance & ownership:</strong> ${alert.governanceOwnership}</p>`,
+    alert.suggestedTimeline &&
+      `<p style="margin:0 0 6px;font-size:13px;"><strong>Suggested timeline:</strong> ${alert.suggestedTimeline}</p>`,
+    alert.crossChecks &&
+      `<p style="margin:0 0 6px;font-size:13px;"><strong>Cross-checks:</strong><br>${alert.crossChecks.replace(/\n/g, "<br>")}</p>`,
+  ].filter(Boolean);
+  const proHTML =
+    proBits.length > 0
+      ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;">${proBits.join("")}</div>`
+      : "";
+  return `
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:16px 18px;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#c2410c;margin-bottom:6px;">${alert.sourceName}</div>
+      ${importanceBadgeHTML(alert.importance)}
+      ${alert.published ? `<span style="font-size:11px;color:#9ca3af;margin-left:8px;">${alert.published}</span>` : ""}
+      <p style="margin:8px 0 4px;font-size:15px;font-weight:700;color:#111827;">${alert.title}</p>
+      ${alert.whatChanged ? `<p style="margin:0 0 8px;font-size:14px;color:#4b5563;"><strong>What changed:</strong> ${alert.whatChanged}</p>` : ""}
+      ${alert.actions.length ? `<p style="margin:0;font-size:14px;font-weight:600;">What employers must do:</p>${actionsHTML}` : ""}
+      ${alert.risk ? `<p style="margin:8px 0;font-size:14px;"><strong>Risk if ignored:</strong> ${alert.risk}</p>` : ""}
+      ${proHTML}
+      ${alert.sourceUrl ? `<p style="margin:8px 0 0;font-size:12px;"><a href="${alert.sourceUrl}" style="color:#2563eb;">${alert.sourceUrl}</a></p>` : ""}
+    </div>`;
+}
+
+function buildCriticalEmailHTML(companyName, cards, shortDate) {
+  const inner = cards.map(buildAlertCardHTML).join("");
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f3f4f6;font-family:system-ui,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;"><tr><td align="center">
+<table width="600" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+<tr><td style="background:#7f1d1d;padding:20px 24px;">
+<div style="font-size:18px;font-weight:700;color:#fff;">ActAware — Critical alert</div>
+<div style="font-size:12px;color:#fecaca;margin-top:4px;">Professional / Agency · ${shortDate}</div>
+</td></tr>
+<tr><td style="padding:24px;">
+<p style="margin:0 0 16px;font-size:15px;color:#374151;">Hi ${companyName ? `<strong>${companyName}</strong>` : "there"},</p>
+<p style="margin:0 0 16px;font-size:14px;color:#4b5563;line-height:1.55;">The following was flagged as <strong>CRITICAL</strong> from our official UK sources in the last ~24 hours. This is separate from your morning digest.</p>
+${inner}
+<p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">Not legal advice. Verify with primary sources and your solicitor.</p>
+</td></tr>
+</table>
+</td></tr></table></body></html>`;
+}
+
+function dedupeTitle(url, title) {
+  const u = (url || "").slice(0, 180);
+  const t = (title || "").slice(0, 120);
+  return `CRITICAL-PULSE|${u}|${t}`;
+}
+
+exports.handler = async function () {
+  if (process.env.CRITICAL_ALERTS_DISABLED === "true") {
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ skipped: true, reason: "CRITICAL_ALERTS_DISABLED" }),
+    };
+  }
+
+  const testRun = process.env.SEND_ALERTS_TEST_RUN === "true";
+  const testEmailOnly = process.env.TEST_EMAIL_ONLY?.trim();
+
+  let users = await getProAgencyUsers();
+  if (users.length === 0 && !testEmailOnly) {
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ skipped: true, reason: "No professional or agency subscribers" }),
+    };
+  }
+
+  if (testEmailOnly) {
+    const match = users.find((u) => u.users?.email?.toLowerCase() === testEmailOnly.toLowerCase());
+    users = match
+      ? [match]
+      : [
+          {
+            user_id: null,
+            plan: "professional",
+            users: { email: testEmailOnly, company_name: "Test org" },
+          },
+        ];
+  }
+
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const runId = `crit_${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  const allCriticalSections = [];
+
+  for (const feed of RSS_FEEDS) {
+    const filterSpec = feed.filterKeywords || feed.filterKeyword || null;
+    try {
+      const xml = await fetchRSS(feed.url);
+      const allItems = parseRSSItems(xml, filterSpec);
+      const items = allItems.filter((item) => {
+        if (!item.published) return false;
+        const d = new Date(item.published);
+        return !isNaN(d) && d.getTime() >= cutoff;
+      });
+      if (items.length === 0) continue;
+
+      const content = await summariseCriticalOnly(items, feed.name);
+      if (
+        content.includes("NO_CRITICAL_EMPLOYER_UPDATES") ||
+        content.includes("No employer-relevant") ||
+        content.trim().length < 30
+      ) {
+        continue;
+      }
+
+      const blocks = parseAlertsFromText(content, feed.name);
+      if (blocks.length > 0) {
+        allCriticalSections.push({ source: feed.name, content, blocks });
+      }
+    } catch (e) {
+      console.error(`[critical] ${feed.name}: ${e.message}`);
+    }
+  }
+
+  const flatCards = allCriticalSections.flatMap((s) => s.blocks);
+  if (flatCards.length === 0) {
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        runId,
+        message: "No CRITICAL items in 24h window",
+        feedsChecked: RSS_FEEDS.length,
+      }),
+    };
+  }
+
+  const shortDate = new Date().toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const mailTestPrefix = testRun ? "[TEST] " : "";
+
+  let sent = 0;
+  for (const sub of users) {
+    try {
+      const toSend = [];
+      for (const card of flatCards) {
+        const dt = dedupeTitle(card.sourceUrl, card.title);
+        if (sub.user_id) {
+          const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+          const { data: existing } = await supabase
+            .from("sent_alerts")
+            .select("id")
+            .eq("user_id", sub.user_id)
+            .eq("alert_title", dt)
+            .gte("sent_at", since)
+            .limit(1);
+          if (existing && existing.length > 0) continue;
+        }
+        toSend.push(card);
+      }
+
+      if (toSend.length === 0) continue;
+
+      const html = buildCriticalEmailHTML(sub.users.company_name, toSend, shortDate);
+      await resend.emails.send({
+        from: "ActAware <onboarding@resend.dev>",
+        to: sub.users.email,
+        subject: `${mailTestPrefix}ActAware CRITICAL — UK employer compliance`,
+        html,
+        click_tracking: false,
+        open_tracking: false,
+      });
+
+      for (const card of toSend) {
+        if (sub.user_id) {
+          await supabase.from("sent_alerts").insert({
+            user_id: sub.user_id,
+            alert_title: dedupeTitle(card.sourceUrl, card.title),
+            alert_summary: `[critical-pulse] ${card.title} ${card.sourceUrl}`.substring(0, 500),
+            alert_source: `critical-pulse — ${card.sourceName}`,
+            importance: "critical",
+          });
+        }
+      }
+      sent++;
+    } catch (err) {
+      console.error(`Critical mail error ${sub.users?.email}: ${err.message}`);
+    }
+  }
+
+  return {
+    statusCode: 202,
+    body: JSON.stringify({
+      runId,
+      criticalCards: flatCards.length,
+      recipients: sent,
+      testRun: !!testRun,
+    }),
+  };
+};
