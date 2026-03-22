@@ -2,6 +2,12 @@
 
 UK employer compliance alerts: landing pages, Stripe checkout, Netlify Functions (daily digest / quiet-day email), Supabase, Resend, Anthropic.
 
+## Contact, güven & yasal metin
+
+- **`contact.html`** — İletişim formu (Netlify **Forms**, form adı `actaware-contact`). Gönderimden sonra **`contact-thanks.html`** açılır.
+- İlk deploy sonrası Netlify → **Forms** bölümünden bildirim e-postası / spam ayarlarını kontrol et (ücretsiz planda aylık gönderim limiti vardır).
+- **`index.html`** — `#trust` (“Who we are”), footer’da şirket unvanı + Companies House linki, genişletilmiş **disclaimer** (bilgilendirme amaçlı, hukuki tavsiye değildir).
+
 ## Free trial (14 gün, kart yok)
 
 - **`trial.html`** — Kayıt formu (ad, soyad, iş e-postası, şirket, sektör, rol, şirket büyüklüğü, isteğe bağlı not).
