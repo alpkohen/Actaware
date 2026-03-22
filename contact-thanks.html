@@ -47,14 +47,21 @@
       text-decoration: underline;
       font-weight: 600;
     }
-    .logo {
+    /* Logo link must override global `a` button styles (navy bg made "Act" invisible on navy) */
+    a.logo {
+      display: inline-block;
       font-family: 'Fraunces', serif;
-      font-size: 20px;
+      font-size: 22px;
+      font-weight: 600;
       color: var(--navy);
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
       text-decoration: none;
       margin-bottom: 32px;
     }
-    .logo span { color: var(--gold); }
+    a.logo:hover { opacity: 0.85; }
+    a.logo span { color: var(--gold); }
   </style>
 </head>
 <body>

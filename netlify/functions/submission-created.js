@@ -2,11 +2,11 @@
  * Netlify event: runs when a verified form submission is created.
  * Sends you an email via Resend (same key as digest emails).
  *
- * Optional env: CONTACT_FORM_NOTIFY_EMAIL (defaults to akohen@uniq-tr.com)
+ * Optional env: CONTACT_FORM_NOTIFY_EMAIL (defaults to alpkohen67@gmail.com — Resend test mode often only delivers to verified addresses)
  */
 const Resend = require("resend").Resend;
 
-const DEFAULT_NOTIFY = "akohen@uniq-tr.com";
+const DEFAULT_NOTIFY = "alpkohen67@gmail.com";
 
 function escapeText(s) {
   return String(s ?? "")

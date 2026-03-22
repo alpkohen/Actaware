@@ -5,7 +5,7 @@ UK employer compliance alerts: landing pages, Stripe checkout, Netlify Functions
 ## Contact, güven & yasal metin
 
 - **`contact.html`** — İletişim formu (Netlify **Forms**, form adı `actaware-contact`). Gönderim **AJAX ile** `POST /` (kök URL) yapılır — `POST /contact.html` çoğu zaman başarısız olur. Başarıda tarayıcı **`/contact-thanks.html`** açılır.
-- **Mesajlar nereye gider?** (1) Netlify: **Site → Forms → actaware-contact → Submissions**. (2) E-posta: **`submission-created.js`** her doğrulanmış gönderide **Resend** ile bildirim atar — varsayılan alıcı **`akohen@uniq-tr.com`**. Başka adres için Netlify’da **`CONTACT_FORM_NOTIFY_EMAIL`** tanımla. **`RESEND_API_KEY`** zaten digest mailleri için var; aynı anahtar kullanılır. İsteğe bağlı: **`CONTACT_FORM_FROM`** veya **`RESEND_FROM`** (Resend’de doğrulanmış gönderen).
+- **Mesajlar nereye gider?** (1) Netlify: **Site → Forms → actaware-contact → Submissions**. (2) E-posta: **`submission-created.js`** her doğrulanmış gönderide **Resend** ile bildirim atar — varsayılan alıcı **`alpkohen67@gmail.com`**. Başka adres için Netlify’da **`CONTACT_FORM_NOTIFY_EMAIL`** tanımla. **`RESEND_API_KEY`** zaten digest mailleri için var; aynı anahtar kullanılır. **Resend** ücretsiz/test kullanımda çoğu zaman yalnızca hesapta **doğrulanmış** alıcı adreslerine teslim eder — bildirim gitmiyorsa Resend dashboard’da alıcıyı doğrula veya kendi domain’inden gönderimi aç. İsteğe bağlı: **`CONTACT_FORM_FROM`** veya **`RESEND_FROM`**.
 - İlk deploy sonrası **Forms** altında `actaware-contact` görünmüyorsa deploy’u yenile; ücretsiz planda aylık gönderim limiti vardır.
 - **`index.html`** — `#trust` (“Who we are”), footer’da şirket unvanı + Companies House linki, genişletilmiş **disclaimer** (bilgilendirme amaçlı, hukuki tavsiye değildir).
 
@@ -29,7 +29,7 @@ SQL Editor’da çalıştırın:
 | Değişken | Açıklama |
 |----------|-----------|
 | `TRIAL_DAYS` | Varsayılan **14**. 1–90 arası güvenli sınır. |
-| `CONTACT_FORM_NOTIFY_EMAIL` | İletişim formu bildirimi (Resend). Boşsa **`akohen@uniq-tr.com`** kullanılır. |
+| `CONTACT_FORM_NOTIFY_EMAIL` | İletişim formu bildirimi (Resend). Boşsa **`alpkohen67@gmail.com`** kullanılır. |
 | `CONTACT_FORM_FROM` / `RESEND_FROM` | Resend “from” adresi; yoksa `ActAware <onboarding@resend.dev>` (Resend test). |
 
 ## Ücretli planlar (form → Stripe / Agency mail)
