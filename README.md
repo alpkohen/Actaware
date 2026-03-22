@@ -39,6 +39,18 @@ SQL Editor’da çalıştırın:
 | **seat_limit** (Starter 1, Pro 3, Agency 15) | ✅ Stripe webhook + migration; çoklu kullanıcı davet UI henüz yok |
 | Slack / Teams | ❌ Henüz yok (roadmap) |
 
+## My alerts (`dashboard.html`) — magic link + planlı arşiv
+
+- **Giriş:** Supabase **Email** (magic link / OTP). Kullanıcı abonelikteki e-postayla `signInWithOtp` alır; `dashboard-alerts` yalnızca geçerli **JWT** (`Authorization: Bearer …`) ile çalışır (eski “sadece e-posta gövdesi” kaldırıldı).
+- **Arşiv:** **Professional** ve **Agency** + `subscriptions.status === 'active'` → son **500** uyarıya kadar tam geçmiş; **Starter**, **trial**, pasif veya diğer → son **30 gün** ve en fazla **100** kayıt.
+- **Netlify fonksiyonları:** `public-config` (GET) tarayıcıya `SUPABASE_URL` + `SUPABASE_ANON_KEY` döner; `dashboard-alerts` JWT’yi anon istemciyle doğrular, sorguları **service role** ile yapar.
+
+### Supabase Auth ayarları
+
+1. **Authentication → Providers → Email** — Magic link / OTP açık olsun.
+2. **Authentication → URL configuration** — **Site URL** üretim kökünüz (ör. `https://act-aware.netlify.app`).
+3. **Redirect URLs** — `https://…/dashboard.html` ve yerelde test için `http://localhost:8888/dashboard.html` (veya kullandığınız Netlify CLI portu).
+
 ### Supabase
 
 - `supabase/migrations/20260324120000_subscriptions_seat_limit.sql` — `subscriptions.seat_limit`
@@ -90,6 +102,7 @@ Background fonksiyon ve diğer lambda’lar için tipik değişkenler:
 | Değişken | Kullanım |
 |----------|----------|
 | `SUPABASE_URL` | Supabase proje URL |
+| `SUPABASE_ANON_KEY` | **Anon (public) key** — `public-config` ve JWT doğrulama için; tarayıcıya gider, gizli tutmanız gerekmez |
 | `SUPABASE_SERVICE_KEY` | **Service role** (sunucu tarafı; RLS bypass — client’a vermeyin) |
 | `RESEND_API_KEY` | E-posta gönderimi |
 | `ANTHROPIC_API_KEY` | Özet üretimi |

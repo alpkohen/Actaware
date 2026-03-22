@@ -11,13 +11,18 @@
     header h1 { font-size: 18px; font-weight: 700; }
     header a { color: #94a3b8; font-size: 13px; text-decoration: none; }
     .container { max-width: 800px; margin: 0 auto; padding: 32px 16px; }
-    .login-card { background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 32px; max-width: 400px; margin: 60px auto; }
+    .login-card { background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 32px; max-width: 440px; margin: 60px auto; }
     .login-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-    .login-card p { font-size: 14px; color: #6b7280; margin-bottom: 20px; }
+    .login-card p { font-size: 14px; color: #6b7280; margin-bottom: 20px; line-height: 1.55; }
+    .login-card .hint { font-size: 12px; color: #9ca3af; margin-top: 16px; }
     input[type="email"] { width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 12px; outline: none; }
     input[type="email"]:focus { border-color: #6366f1; }
     .btn { width: 100%; padding: 11px; background: #0f172a; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
     .btn:hover { opacity: 0.9; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .msg { font-size: 13px; margin-top: 12px; display: none; }
+    .msg.err { color: #dc2626; display: block; }
+    .msg.ok { color: #059669; display: block; }
     .search-bar { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 12px 16px; display: flex; gap: 10px; margin-bottom: 20px; }
     .search-bar input { flex: 1; border: none; outline: none; font-size: 14px; }
     .search-bar button { background: #0f172a; color: white; border: none; border-radius: 6px; padding: 6px 16px; font-size: 13px; cursor: pointer; }
@@ -34,6 +39,7 @@
     .empty { text-align: center; color: #9ca3af; padding: 60px 0; font-size: 14px; }
     #login-section { display: block; }
     #dashboard-section { display: none; }
+    .archive-banner { font-size: 12px; color: #6b7280; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -44,92 +50,241 @@
 <div class="container">
   <div id="login-section">
     <div class="login-card">
-      <h2>Your alert history</h2>
-      <p>Enter the email address you subscribed with to view your past compliance alerts.</p>
-      <input type="email" id="login-email" placeholder="your@email.com">
-      <button class="btn" onclick="loadAlerts()">View my alerts</button>
-      <p id="login-error" style="color:#ef4444;font-size:13px;margin-top:10px;display:none;">No account found with that email address.</p>
+      <h2>Sign in to your alerts</h2>
+      <p>We’ll email you a one-time link. Use the <strong>same address</strong> you used for your trial or paid subscription.</p>
+      <input type="email" id="login-email" placeholder="your@email.com" autocomplete="email">
+      <button type="button" class="btn" id="btn-magic-link">Email me a sign-in link</button>
+      <p class="msg" id="login-msg"></p>
+      <p class="hint">Professional and Agency plans can browse full alert history; Starter and trial show roughly the last 30 days.</p>
     </div>
   </div>
   <div id="dashboard-section">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <h2 style="font-size:20px;font-weight:700;">Your compliance alerts</h2>
         <p style="font-size:13px;color:#6b7280;margin-top:2px;" id="alert-count"></p>
       </div>
-      <button onclick="logout()" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;color:#6b7280;">Sign out</button>
+      <button type="button" id="btn-sign-out" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;color:#6b7280;">Sign out</button>
     </div>
+    <div class="archive-banner" id="archive-banner" style="display:none;"></div>
     <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Search alerts (e.g. SSP, paternity, NMW)..." onkeyup="if(event.key==='Enter')searchAlerts()">
-      <button onclick="searchAlerts()">Search</button>
+      <input type="text" id="search-input" placeholder="Search alerts (e.g. SSP, paternity, NMW)...">
+      <button type="button" id="btn-search">Search</button>
     </div>
     <div id="alerts-list"></div>
   </div>
 </div>
-<script>
-  let currentEmail = "";
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+  function escapeHtml(s) {
+    if (s == null) return "";
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  let supabase = null;
+  let session = null;
   let allAlerts = [];
-  async function loadAlerts() {
-    const email = document.getElementById("login-email").value.trim();
-    if (!email) return;
-    const res = await fetch("/.netlify/functions/dashboard-alerts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (data.error || !data.alerts) {
-      document.getElementById("login-error").style.display = "block";
+  let lastLoadedAuthUserId = null;
+
+  const el = (id) => document.getElementById(id);
+
+  function showLoginMsg(text, ok) {
+    const m = el("login-msg");
+    m.textContent = text || "";
+    m.className = "msg" + (text ? (ok ? " ok" : " err") : "");
+  }
+
+  function setArchiveBanner(meta) {
+    const b = el("archive-banner");
+    if (!meta || meta.archiveFullHistory) {
+      b.style.display = "none";
+      b.textContent = "";
       return;
     }
-    currentEmail = email;
-    allAlerts = data.alerts;
-    document.getElementById("login-section").style.display = "none";
-    document.getElementById("dashboard-section").style.display = "block";
-    renderAlerts(allAlerts);
+    b.style.display = "block";
+    b.textContent =
+      `Your plan shows alerts from the last ${meta.archiveDays} days. Upgrade to Professional for full history.`;
   }
-  async function searchAlerts() {
-    const search = document.getElementById("search-input").value.trim();
-    const res = await fetch("/.netlify/functions/dashboard-alerts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: currentEmail, search }),
-    });
-    const data = await res.json();
-    renderAlerts(data.alerts || []);
-  }
-  function renderAlerts(alerts) {
-    const list = document.getElementById("alerts-list");
-    document.getElementById("alert-count").textContent = `${alerts.length} alert${alerts.length !== 1 ? "s" : ""} found`;
+
+  function renderAlerts(alerts, meta) {
+    const list = el("alerts-list");
+    el("alert-count").textContent = `${alerts.length} alert${alerts.length !== 1 ? "s" : ""} shown`;
+    setArchiveBanner(meta);
     if (alerts.length === 0) {
       list.innerHTML = "<div class='empty'>No alerts found</div>";
       return;
     }
-    list.innerHTML = alerts.map(alert => {
+    list.innerHTML = alerts.map((alert) => {
       const date = new Date(alert.sent_at).toLocaleDateString("en-GB", {
-        day: "numeric", month: "short", year: "numeric"
+        day: "numeric",
+        month: "short",
+        year: "numeric",
       });
-      const badgeClass = alert.importance === "critical" ? "badge-critical" : alert.importance === "high" ? "badge-high" : "badge-medium";
+      const badgeClass =
+        alert.importance === "critical"
+          ? "badge-critical"
+          : alert.importance === "high"
+            ? "badge-high"
+            : "badge-medium";
       return `
         <div class="alert-card">
           <div class="alert-header">
-            <div class="alert-title">${alert.alert_title}</div>
-            <div class="alert-date">${date}</div>
+            <div class="alert-title">${escapeHtml(alert.alert_title)}</div>
+            <div class="alert-date">${escapeHtml(date)}</div>
           </div>
-          <div class="alert-source">${alert.alert_source || "GOV.UK"}</div>
-          <span class="badge ${badgeClass}">${alert.importance || "high"}</span>
-          <div class="alert-summary" style="margin-top:10px;">${alert.alert_summary}</div>
+          <div class="alert-source">${escapeHtml(alert.alert_source || "GOV.UK")}</div>
+          <span class="badge ${badgeClass}">${escapeHtml(alert.importance || "high")}</span>
+          <div class="alert-summary" style="margin-top:10px;">${escapeHtml(alert.alert_summary)}</div>
         </div>
       `;
     }).join("");
   }
-  function logout() {
-    currentEmail = "";
-    allAlerts = [];
-    document.getElementById("login-section").style.display = "block";
-    document.getElementById("dashboard-section").style.display = "none";
-    document.getElementById("login-email").value = "";
+
+  async function fetchAlerts(accessToken, search) {
+    const res = await fetch("/.netlify/functions/dashboard-alerts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ search: search || undefined }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      await supabase?.auth.signOut();
+      throw new Error(data.error || "Session expired");
+    }
+    if (!res.ok) {
+      throw new Error(data.error || "Could not load alerts");
+    }
+    return data;
   }
+
+  async function loadDashboard(sess) {
+    const uid = sess?.user?.id;
+    const dashVisible = el("dashboard-section").style.display === "block";
+    if (uid && uid === lastLoadedAuthUserId && dashVisible) {
+      session = sess;
+      return;
+    }
+    session = sess;
+    const data = await fetchAlerts(sess.access_token, "");
+    lastLoadedAuthUserId = uid || null;
+    allAlerts = data.alerts || [];
+    el("login-section").style.display = "none";
+    el("dashboard-section").style.display = "block";
+    showLoginMsg("", false);
+    renderAlerts(allAlerts, data.meta);
+  }
+
+  function showLoginForm() {
+    el("login-section").style.display = "block";
+    el("dashboard-section").style.display = "none";
+    allAlerts = [];
+    session = null;
+    lastLoadedAuthUserId = null;
+  }
+
+  async function init() {
+    const cfgRes = await fetch("/.netlify/functions/public-config");
+    const cfg = await cfgRes.json().catch(() => ({}));
+    if (!cfgRes.ok || !cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+      showLoginMsg(
+        cfg.hint || "Dashboard sign-in is not configured yet (missing Supabase keys on the server).",
+        false
+      );
+      el("btn-magic-link").disabled = true;
+      return;
+    }
+
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+      auth: {
+        flowType: "pkce",
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    });
+
+    const {
+      data: { session: initial },
+    } = await supabase.auth.getSession();
+    if (initial?.access_token) {
+      try {
+        await loadDashboard(initial);
+      } catch (e) {
+        showLoginMsg(e.message || "Could not load alerts", false);
+        showLoginForm();
+      }
+    }
+
+    supabase.auth.onAuthStateChange(async (event, sess) => {
+      if (event === "SIGNED_OUT" || !sess) {
+        showLoginForm();
+        return;
+      }
+      if (event === "TOKEN_REFRESHED") {
+        session = sess;
+        return;
+      }
+      if (event === "SIGNED_IN" && sess?.access_token) {
+        try {
+          await loadDashboard(sess);
+        } catch (e) {
+          showLoginMsg(e.message || "Could not load alerts", false);
+        }
+      }
+    });
+
+    el("btn-magic-link").addEventListener("click", async () => {
+      const email = el("login-email").value.trim();
+      if (!email) {
+        showLoginMsg("Enter your email address.", false);
+        return;
+      }
+      el("btn-magic-link").disabled = true;
+      showLoginMsg("", false);
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: redirectTo },
+      });
+      el("btn-magic-link").disabled = false;
+      if (error) {
+        showLoginMsg(error.message || "Could not send link", false);
+        return;
+      }
+      showLoginMsg("Check your inbox for the sign-in link. You can close this tab.", true);
+    });
+
+    el("btn-sign-out").addEventListener("click", async () => {
+      await supabase.auth.signOut();
+      showLoginForm();
+      el("login-email").value = "";
+    });
+
+    el("btn-search").addEventListener("click", async () => {
+      if (!session?.access_token) return;
+      const search = el("search-input").value.trim();
+      try {
+        const data = await fetchAlerts(session.access_token, search);
+        renderAlerts(data.alerts || [], data.meta);
+      } catch (e) {
+        el("alerts-list").innerHTML = `<div class='empty'>${escapeHtml(e.message)}</div>`;
+      }
+    });
+
+    el("search-input").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") el("btn-search").click();
+    });
+  }
+
+  init();
 </script>
 </body>
 </html>
