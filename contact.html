@@ -240,11 +240,25 @@
           credentials: "same-origin",
         })
           .then(function (res) {
-            if (res.ok) {
-              window.location.href = "/contact-thanks.html";
-              return;
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            var fd = new FormData(form);
+            return fetch("/.netlify/functions/contact-notify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: (fd.get("name") || "").trim(),
+                email: (fd.get("email") || "").trim(),
+                subject: (fd.get("subject") || "").trim(),
+                message: (fd.get("message") || "").trim(),
+                botField: (fd.get("bot-field") || "").trim(),
+              }),
+            });
+          })
+          .then(function (notifyRes) {
+            if (notifyRes && !notifyRes.ok) {
+              console.warn("contact-notify failed", notifyRes.status);
             }
-            throw new Error("HTTP " + res.status);
+            window.location.href = "/contact-thanks.html";
           })
           .catch(function () {
             errEl.textContent =
