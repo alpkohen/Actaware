@@ -4,8 +4,9 @@ UK employer compliance alerts: landing pages, Stripe checkout, Netlify Functions
 
 ## Contact, güven & yasal metin
 
-- **`contact.html`** — İletişim formu (Netlify **Forms**, form adı `actaware-contact`). Gönderimden sonra **`contact-thanks.html`** açılır.
-- İlk deploy sonrası Netlify → **Forms** bölümünden bildirim e-postası / spam ayarlarını kontrol et (ücretsiz planda aylık gönderim limiti vardır).
+- **`contact.html`** — İletişim formu (Netlify **Forms**, form adı `actaware-contact`). Gönderim **AJAX ile** `POST /contact.html` yapılır; başarıda tarayıcı **`/contact-thanks.html`** sayfasına gider (doğrudan `POST` ile `contact-thanks.html` hedeflemek boş sayfa üretebilirdi).
+- **Mesajlar nereye gider?** Netlify panosu: **Site → Forms → actaware-contact → Submissions**. Varsayılan olarak e-postana **otomatik gitmez**; **Site configuration → Forms → Form notifications** (veya **Integrations → Notifications**) ile bildirim e-postası eklemen gerekir.
+- İlk deploy sonrası **Forms** altında `actaware-contact` görünmüyorsa deploy’u yenile; ücretsiz planda aylık gönderim limiti vardır.
 - **`index.html`** — `#trust` (“Who we are”), footer’da şirket unvanı + Companies House linki, genişletilmiş **disclaimer** (bilgilendirme amaçlı, hukuki tavsiye değildir).
 
 ## Free trial (14 gün, kart yok)

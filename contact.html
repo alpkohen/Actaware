@@ -140,6 +140,15 @@
       header { padding: 0 20px; flex-wrap: wrap; height: auto; min-height: 64px; padding-top: 12px; padding-bottom: 12px; }
       header nav a { margin-left: 16px; }
     }
+    .form-submit-error {
+      font-size: 14px;
+      color: #991b1b;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #fef2f2;
+      border-radius: 8px;
+      border: 1px solid #fecaca;
+    }
   </style>
 </head>
 <body>
@@ -158,11 +167,15 @@
     <p class="lead">Questions about plans, trials, or how ActAware fits your organisation? Send a message — we aim to reply within <strong>one UK business day</strong>.</p>
 
     <div class="card">
-      <!-- Netlify parses this form at deploy time; submissions appear in Netlify → Forms -->
-      <form name="actaware-contact" method="POST" data-netlify="true" data-netlify-honeypot="bot-field" action="/contact-thanks.html">
+      <!--
+        Netlify Forms: must POST to the page that contains the form (see Netlify docs — AJAX).
+        Posting directly to contact-thanks.html can return a blank page (static POST).
+        Submissions: Netlify → Site → Forms → actaware-contact
+      -->
+      <form id="contact-form" name="actaware-contact" method="POST" netlify data-netlify="true" data-netlify-honeypot="bot-field" action="/contact.html">
         <input type="hidden" name="form-name" value="actaware-contact">
         <p class="hp">
-          <label>Don’t fill this out if you’re human: <input name="bot-field"></label>
+          <label>Don’t fill this out if you’re human: <input name="bot-field" autocomplete="off"></label>
         </p>
 
         <div class="field">
@@ -189,7 +202,8 @@
           <textarea id="message" name="message" required placeholder="How can we help?"></textarea>
         </div>
 
-        <button type="submit" class="btn">Send message</button>
+        <p id="form-submit-error" class="form-submit-error" role="alert" hidden></p>
+        <button type="submit" class="btn" id="form-submit-btn">Send message</button>
         <p class="fine">By sending this form you agree we may use your details to respond. We don’t sell your data. For legal notices, include “Legal” in the subject line.</p>
       </form>
     </div>
@@ -201,5 +215,45 @@
     <a href="https://find-and-update.company-information.service.gov.uk/company/12846144" target="_blank" rel="noopener noreferrer">Companies House</a></p>
     <p style="margin-top:12px;"><a href="/">Home</a> · <a href="/#pricing">Pricing</a> · <a href="mailto:hello@actaware.co.uk">hello@actaware.co.uk</a></p>
   </footer>
+
+  <script>
+    (function () {
+      var form = document.getElementById("contact-form");
+      var btn = document.getElementById("form-submit-btn");
+      var errEl = document.getElementById("form-submit-error");
+      if (!form || !btn) return;
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        errEl.hidden = true;
+        errEl.textContent = "";
+        btn.disabled = true;
+        var prevText = btn.textContent;
+        btn.textContent = "Sending…";
+
+        var body = new URLSearchParams(new FormData(form)).toString();
+
+        fetch("/contact.html", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: body,
+        })
+          .then(function (res) {
+            if (res.ok) {
+              window.location.href = "/contact-thanks.html";
+              return;
+            }
+            throw new Error("Network error");
+          })
+          .catch(function () {
+            errEl.textContent =
+              "We couldn’t send that just now. Please email hello@actaware.co.uk — we read every message.";
+            errEl.hidden = false;
+            btn.disabled = false;
+            btn.textContent = prevText;
+          });
+      });
+    })();
+  </script>
 </body>
 </html>
