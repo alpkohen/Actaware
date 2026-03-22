@@ -168,11 +168,10 @@
 
     <div class="card">
       <!--
-        Netlify Forms: must POST to the page that contains the form (see Netlify docs — AJAX).
-        Posting directly to contact-thanks.html can return a blank page (static POST).
-        Submissions: Netlify → Site → Forms → actaware-contact
+        Netlify Forms: AJAX must POST to `/` (site root). POST /contact.html often fails (404).
+        Do not POST to contact-thanks.html — blank page. Submissions: Netlify → Forms → actaware-contact
       -->
-      <form id="contact-form" name="actaware-contact" method="POST" netlify data-netlify="true" data-netlify-honeypot="bot-field" action="/contact.html">
+      <form id="contact-form" name="actaware-contact" method="POST" netlify data-netlify="true" data-netlify-honeypot="bot-field" action="/">
         <input type="hidden" name="form-name" value="actaware-contact">
         <p class="hp">
           <label>Don’t fill this out if you’re human: <input name="bot-field" autocomplete="off"></label>
@@ -233,17 +232,19 @@
 
         var body = new URLSearchParams(new FormData(form)).toString();
 
-        fetch("/contact.html", {
+        // Netlify Forms: POST must go to site root `/`, not `/contact.html` (often 404 / not ok).
+        fetch("/", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: body,
+          credentials: "same-origin",
         })
           .then(function (res) {
             if (res.ok) {
               window.location.href = "/contact-thanks.html";
               return;
             }
-            throw new Error("Network error");
+            throw new Error("HTTP " + res.status);
           })
           .catch(function () {
             errEl.textContent =
