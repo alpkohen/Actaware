@@ -23,6 +23,13 @@ SQL Editor’da çalıştırın:
 |----------|-----------|
 | `TRIAL_DAYS` | Varsayılan **14**. 1–90 arası güvenli sınır. |
 
+## Ücretli planlar (form → Stripe / Agency mail)
+
+- Fiyat kartları **`register.html?plan=starter`**, **`?plan=professional`**, **`?plan=agency`** adresine gider.
+- **`register-and-checkout`** — Profili Supabase `users` tablosuna yazar; **Starter / Professional** için Stripe Checkout URL döner; **Agency** için `mailto:` ile dolu gövde döner (önce kayıt, sonra e-posta istemcisi).
+- Fiyat ID’leri `register-and-checkout.js` içinde tanımlı (`PLAN_PRICE_IDS`); Stripe’da değişirsen burayı güncelle.
+- Eski **`create-checkout-session`** doğrudan siteden artık kullanılmıyor; istersen başka entegrasyonlar için bırakılabilir.
+
 ## Supabase: audit tabloları
 
 `send-alerts-background` fonksiyonu iki tabloya yazar:
@@ -39,6 +46,7 @@ SQL Editor’da çalıştırın:
 3. Bu dosyaları sırayla açıp yapıştırın ve **Run**:
    - `supabase/migrations/20260321120000_raw_feed_logs_and_feed_fetch_errors.sql`
    - `supabase/migrations/20260322120000_users_profile_and_trial.sql` *(ücretsiz deneme + profil kolonları)*
+   - `supabase/migrations/20260323120000_subscriptions_plan_check_trial.sql` *(plan kolonunda `trial` izni — trial kaydı hatası alıyorsan)*
 4. **Table Editor**’da tabloların oluştuğunu doğrulayın.
 
 > Tablolar yoksa fonksiyon çalışırken insert hataları log’a düşer; mail akışı diğer feed’lerle devam edebilir ama denetim/hata kaydı eksik kalır.
@@ -114,8 +122,9 @@ Bu sınırlar dışında, fetch/parse hatası olursa kayıt **`feed_fetch_errors
 
 ## Proje yapısı (kısa)
 
-- `index.html`, `trial.html`, `trial-welcome.html`, `dashboard.html`, `success.html` — arayüz
+- `index.html`, `trial.html`, `trial-welcome.html`, `register.html`, `dashboard.html`, `success.html` — arayüz
 - `netlify/functions/send-alerts-background.js` — günlük tarama ve mail
 - `netlify/functions/register-trial.js` — ücretsiz deneme kaydı
-- `netlify/functions/create-checkout-session.js`, `stripe-webhook.js` — abonelik
+- `netlify/functions/register-and-checkout.js` — ücretli plan formu → Stripe veya Agency mailto
+- `netlify/functions/create-checkout-session.js`, `stripe-webhook.js` — abonelik (checkout esas olarak `register-and-checkout` üzerinden)
 - `netlify/functions/dashboard-alerts.js` — alert geçmişi

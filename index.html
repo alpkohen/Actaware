@@ -588,19 +588,6 @@
     .feat-check { color: var(--green); font-size: 15px; flex-shrink: 0; margin-top: 1px; }
     .feat-cross { color: var(--border); font-size: 15px; flex-shrink: 0; margin-top: 1px; }
     .plan-features li strong { color: var(--text); font-weight: 600; }
-    .email-field {
-      width: 100%;
-      padding: 11px 14px;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      font-size: 14px;
-      font-family: 'DM Sans', sans-serif;
-      margin-bottom: 10px;
-      outline: none;
-      background: var(--off-white);
-      transition: border-color 0.2s;
-    }
-    .email-field:focus { border-color: var(--navy); background: white; }
     .plan-btn {
       width: 100%;
       padding: 13px;
@@ -614,12 +601,21 @@
     }
     .plan-btn:active { transform: scale(0.98); }
     .plan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .plan-cta-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.45;
+      margin: 18px 0 12px;
+    }
     .btn-starter { background: var(--off-white); color: var(--navy); border: 1px solid var(--border); }
     .btn-starter:hover:not(:disabled) { background: var(--border); }
+    a.plan-btn.btn-starter:hover { background: var(--border); }
     .btn-pro { background: var(--navy); color: var(--white); }
     .btn-pro:hover:not(:disabled) { opacity: 0.87; }
+    a.plan-btn.btn-pro:hover { opacity: 0.87; color: var(--white); }
     .btn-agency { background: var(--gold); color: var(--navy); }
     .btn-agency:hover { opacity: 0.9; }
+    a.plan-btn.btn-agency:hover { opacity: 0.9; }
     .pricing-note {
       text-align: center;
       font-size: 13px;
@@ -732,34 +728,6 @@
     .how-cta-wrap .btn-hero {
       display: inline-block;
       text-decoration: none;
-    }
-
-    .field-error {
-      display: none;
-      font-size: 13px;
-      color: #c0392b;
-      margin-top: 8px;
-      line-height: 1.4;
-    }
-    .field-error.visible { display: block; }
-
-    @keyframes btn-spin {
-      to { transform: rotate(360deg); }
-    }
-    .plan-btn .btn-spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255,255,255,0.35);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: btn-spin 0.65s linear infinite;
-      vertical-align: middle;
-      margin-right: 8px;
-    }
-    .btn-starter .btn-spinner {
-      border-color: rgba(11,24,41,0.2);
-      border-top-color: var(--navy);
     }
 
     /* ── FAQ / DISCLAIMER ── */
@@ -1193,11 +1161,8 @@
         <li><span class="feat-cross">✗</span> <span style="color:var(--text-muted)">Slack / Teams</span></li>
         <li><span class="feat-cross">✗</span> <span style="color:var(--text-muted)">Critical alerts within 24h</span></li>
       </ul>
-      <input type="email" class="email-field" id="email-starter" placeholder="your@email.com" autocomplete="email" aria-invalid="false" aria-describedby="msg-starter">
-      <div class="field-error" id="msg-starter" role="alert"></div>
-      <button type="button" class="plan-btn btn-starter" data-btn-label="Start with Starter" onclick="subscribe('price_1TChtb1Xanrz03nuIzigt2x5', 'email-starter', this)">
-        Start with Starter
-      </button>
+      <p class="plan-cta-hint">Short registration form, then secure Stripe checkout.</p>
+      <a href="register.html?plan=starter" class="plan-btn btn-starter" style="display:block;text-align:center;text-decoration:none;line-height:1.2;">Start with Starter</a>
     </div>
 
     <!-- PROFESSIONAL -->
@@ -1220,11 +1185,8 @@
         <li><span class="feat-cross">✗</span> <span style="color:var(--text-muted)">White-label / client accounts</span></li>
         <li><span class="feat-cross">✗</span> <span style="color:var(--text-muted)">API access</span></li>
       </ul>
-      <input type="email" class="email-field" id="email-pro" placeholder="your@email.com" autocomplete="email" aria-invalid="false" aria-describedby="msg-pro">
-      <div class="field-error" id="msg-pro" role="alert"></div>
-      <button type="button" class="plan-btn btn-pro" data-btn-label="Start with Professional" onclick="subscribe('price_1TChu51Xanrz03numP5U6R8R', 'email-pro', this)">
-        Start with Professional
-      </button>
+      <p class="plan-cta-hint">Short registration form, then secure Stripe checkout.</p>
+      <a href="register.html?plan=professional" class="plan-btn btn-pro" style="display:block;text-align:center;text-decoration:none;line-height:1.2;">Start with Professional</a>
     </div>
 
     <!-- AGENCY -->
@@ -1246,11 +1208,8 @@
         <li><span class="feat-check">✓</span> <span>Unlimited archive + search</span></li>
         <li><span class="feat-check">✓</span> <span>Slack &amp; Microsoft Teams</span></li>
       </ul>
-      <input type="email" class="email-field" id="email-agency" placeholder="your@email.com" autocomplete="email" aria-invalid="false" aria-describedby="msg-agency">
-      <div class="field-error" id="msg-agency" role="alert"></div>
-      <button type="button" class="plan-btn btn-agency" data-btn-label="Get in touch" onclick="contactAgency()">
-        Get in touch
-      </button>
+      <p class="plan-cta-hint">Same form — we’ll open your email with details pre-filled.</p>
+      <a href="register.html?plan=agency" class="plan-btn btn-agency" style="display:block;text-align:center;text-decoration:none;line-height:1.2;">Get in touch</a>
       <div style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:10px;">We'll set you up within 24 hours</div>
     </div>
 
@@ -1277,124 +1236,12 @@
 </footer>
 
 <script>
-  (function () {
-    var PLAN_MSG = {
-      'email-starter': 'msg-starter',
-      'email-pro': 'msg-pro',
-      'email-agency': 'msg-agency'
-    };
-
-    function isValidEmail(email) {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(email).trim());
-    }
-
-    function showPlanError(fieldId, message) {
-      var msgId = PLAN_MSG[fieldId];
-      if (!msgId) return;
-      var input = document.getElementById(fieldId);
-      var msg = document.getElementById(msgId);
-      if (input) {
-        input.setAttribute('aria-invalid', 'true');
-        input.style.borderColor = '#c0392b';
-      }
-      if (msg) {
-        msg.textContent = message;
-        msg.classList.add('visible');
-      }
-    }
-
-    function clearPlanError(fieldId) {
-      var msgId = PLAN_MSG[fieldId];
-      if (!msgId) return;
-      var input = document.getElementById(fieldId);
-      var msg = document.getElementById(msgId);
-      if (input) {
-        input.setAttribute('aria-invalid', 'false');
-        input.style.borderColor = '';
-      }
-      if (msg) {
-        msg.textContent = '';
-        msg.classList.remove('visible');
-      }
-    }
-
-    function ensureBtnLabel(btn) {
-      if (btn && !btn.getAttribute('data-btn-label')) {
-        btn.setAttribute('data-btn-label', btn.textContent.trim());
-      }
-    }
-
-    function setSubscribeLoading(btn, loading) {
-      ensureBtnLabel(btn);
-      var label = btn.getAttribute('data-btn-label');
-      if (loading) {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span>Redirecting...';
-      } else {
-        btn.disabled = false;
-        btn.textContent = label;
-      }
-    }
-
-    window.contactAgency = function () {
-      var fieldId = 'email-agency';
-      var email = document.getElementById(fieldId).value.trim();
-      clearPlanError(fieldId);
-      if (!email || !isValidEmail(email)) {
-        showPlanError(fieldId, 'Please enter a valid work email address.');
-        document.getElementById(fieldId).focus();
-        return;
-      }
-      window.location.href = 'mailto:hello@actaware.co.uk?subject=' + encodeURIComponent('Agency plan enquiry') + '&body=' + encodeURIComponent('Please contact me about the Agency plan.\n\nEmail: ' + email);
-    };
-
-    window.toggleSources = function () {
-      var grid = document.getElementById('sources-grid');
-      var text = document.getElementById('toggle-text');
-      var isOpen = grid.classList.toggle('open');
-      text.textContent = isOpen ? 'Hide sources ↑' : 'Show all sources ↓';
-    };
-
-    window.subscribe = async function (priceId, emailFieldId, btn) {
-      var email = document.getElementById(emailFieldId).value.trim();
-      clearPlanError(emailFieldId);
-      if (!email || !isValidEmail(email)) {
-        showPlanError(emailFieldId, 'Please enter a valid work email address.');
-        document.getElementById(emailFieldId).focus();
-        return;
-      }
-      setSubscribeLoading(btn, true);
-      try {
-        var res = await fetch('/.netlify/functions/create-checkout-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ priceId: priceId, email: email })
-        });
-        var data = {};
-        try {
-          data = await res.json();
-        } catch (e) {}
-        if (data.url) {
-          window.location.href = data.url;
-          return;
-        }
-        var errMsg = (data && data.error) ? String(data.error) : 'Something went wrong. Please try again.';
-        showPlanError(emailFieldId, errMsg);
-      } catch (err) {
-        showPlanError(emailFieldId, 'Network error. Check your connection and try again.');
-      }
-      setSubscribeLoading(btn, false);
-    };
-
-    document.addEventListener('DOMContentLoaded', function () {
-      Object.keys(PLAN_MSG).forEach(function (fieldId) {
-        var el = document.getElementById(fieldId);
-        if (el) {
-          el.addEventListener('input', function () { clearPlanError(fieldId); });
-        }
-      });
-    });
-  })();
+  function toggleSources() {
+    var grid = document.getElementById('sources-grid');
+    var text = document.getElementById('toggle-text');
+    var isOpen = grid.classList.toggle('open');
+    text.textContent = isOpen ? 'Hide sources ↑' : 'Show all sources ↓';
+  }
 </script>
 </body>
 </html>
