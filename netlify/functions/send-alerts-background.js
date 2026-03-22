@@ -510,6 +510,17 @@ exports.handler = async function () {
     year: "numeric",
   });
 
+  const testEmailOnly = process.env.TEST_EMAIL_ONLY?.trim();
+  const forceQuietDayPreview = process.env.FORCE_QUIET_DAY_EMAIL === "true";
+  if (forceQuietDayPreview && !testEmailOnly) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        error: "FORCE_QUIET_DAY_EMAIL requires TEST_EMAIL_ONLY (only sends to that address).",
+      }),
+    };
+  }
+
   // ~36 hours: “yesterday” plus timezone / feed-delay slack. Daily run avoids re-sending stale undated items.
   const cutoff = Date.now() - 36 * 60 * 60 * 1000;
 
@@ -517,6 +528,7 @@ exports.handler = async function () {
   /** Per-feed outcome for Netlify logs + API response — proves all 12 sources were attempted */
   const feedOutcomes = [];
 
+  if (!forceQuietDayPreview) {
   for (const feed of RSS_FEEDS) {
     const filterSpec = feed.filterKeywords || feed.filterKeyword || null;
     const outcome = {
@@ -581,12 +593,23 @@ exports.handler = async function () {
       await logFeedError(runId, feed, err);
     }
   }
+  } else {
+    feedOutcomes.push({
+      feed: "(preview — feeds skipped)",
+      itemsInWindow: 0,
+      inDigest: false,
+      status: "force_quiet_day_preview",
+      detail: null,
+    });
+    console.log("FORCE_QUIET_DAY_EMAIL: skipping RSS/Claude; sending quiet-day template only");
+  }
 
   const priorityOrder = { critical: 0, high: 1, medium: 2 };
   alertSections.sort((a, b) => (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2));
 
+  const mailTestPrefix = testRun || forceQuietDayPreview ? "[TEST] " : "";
+
   let users = await getActiveUsers();
-  const testEmailOnly = process.env.TEST_EMAIL_ONLY?.trim();
   if (testEmailOnly) {
     const match = users.find(
       (u) => u.users?.email?.toLowerCase() === testEmailOnly.toLowerCase()
@@ -606,9 +629,7 @@ exports.handler = async function () {
         await resend.emails.send({
           from: "ActAware <onboarding@resend.dev>",
           to: sub.users.email,
-          subject: testRun
-            ? `[TEST] ActAware: All quiet — UK employer sources (${shortDate})`
-            : `ActAware: All quiet — UK employer sources (${shortDate})`,
+          subject: `${mailTestPrefix}ActAware: All quiet — UK employer sources (${shortDate})`,
           html,
           click_tracking: false,
           open_tracking: false,
@@ -628,9 +649,7 @@ exports.handler = async function () {
         await resend.emails.send({
           from: "ActAware <onboarding@resend.dev>",
           to: sub.users.email,
-          subject: testRun
-            ? `[TEST] UK Employer Compliance — ${shortDate}`
-            : `UK Employer Compliance — ${shortDate}`,
+          subject: `${mailTestPrefix}UK Employer Compliance — ${shortDate}`,
           html,
           click_tracking: false,
           open_tracking: false,
@@ -655,6 +674,7 @@ exports.handler = async function () {
     statusCode: 202,
     body: JSON.stringify({
       testRun,
+      forceQuietDayPreview,
       testEmailOnly: testEmailOnly || null,
       message: isQuietDay
         ? `Sent ${sentCount} quiet-day check-ins`

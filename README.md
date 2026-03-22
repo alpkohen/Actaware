@@ -47,6 +47,7 @@ Background fonksiyon ve diğer lambda’lar için tipik değişkenler:
 | `ALERT_EMAIL` | *(Opsiyonel)* Feed hata olunca Resend ile uyarı almak istediğiniz adres |
 | `SEND_ALERTS_TEST_RUN` | `true` ise Londra 08:00 kilidini atlar — **sadece manuel test için**; bitince kaldırın |
 | `TEST_EMAIL_ONLY` | Örn. `siz@email.com` — mail **yalnızca bu adrese** gider (abonelikte yoksa bile test maili gider; `sent_alerts` yazılmaz) |
+| `FORCE_QUIET_DAY_EMAIL` | `true` + **mutlaka** `TEST_EMAIL_ONLY` — RSS/Claude **çalışmaz**, sadece **“all quiet”** (güncelleme yok) mail şablonu gider |
 
 Netlify: **Site settings → Environment variables**
 
@@ -57,6 +58,10 @@ Netlify: **Site settings → Environment variables**
 3. **Functions** → `send-alerts-background` → **Invoke function** (veya tarayıcıdan `POST` ile aynı endpoint).
 4. Gelen kutunuzu kontrol edin; konu satırında **`[TEST]`** görünür.
 5. Test bittikten sonra Netlify’dan **`SEND_ALERTS_TEST_RUN` ve `TEST_EMAIL_ONLY` değişkenlerini silin** (veya `false` / boş), yoksa üretim davranışı bozulur.
+
+### “Güncelleme yok” mailini önizleme
+
+Aynı şekilde şu **üç** değişkeni birden açın: `SEND_ALERTS_TEST_RUN` = `true`, `TEST_EMAIL_ONLY` = sizin adresiniz, **`FORCE_QUIET_DAY_EMAIL`** = `true`. Deploy sonrası fonksiyonu tetikleyin — gelen kutuda **All quiet** konusu ve metin görünür (feed taraması yapılmaz, Anthropic maliyeti yok). Bitince `FORCE_QUIET_DAY_EMAIL`’i de silin.
 
 ## Kaynakların tamamının taranması (güvence)
 
