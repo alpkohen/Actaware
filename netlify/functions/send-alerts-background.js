@@ -238,13 +238,33 @@ Source: [URL]`;
   return text;
 }
 
+const PLAN_RANK = { agency: 4, professional: 3, starter: 2, trial: 1 };
+
 async function getActiveUsers() {
   const { data, error } = await supabase
     .from("subscriptions")
-    .select("user_id, plan, users(email, company_name)")
+    .select(
+      "user_id, plan, trial_ends_at, stripe_subscription_id, users(email, company_name, industry, first_name, last_name)"
+    )
     .eq("status", "active");
   if (error) throw error;
-  return data || [];
+  const rows = data || [];
+  const now = Date.now();
+  const eligible = rows.filter((row) => {
+    if (row.plan === "trial") {
+      return row.trial_ends_at && new Date(row.trial_ends_at).getTime() > now;
+    }
+    return true;
+  });
+  // One row per user — prefer paid plan over trial if duplicates ever exist
+  const byUser = new Map();
+  for (const row of eligible) {
+    const prev = byUser.get(row.user_id);
+    const r = PLAN_RANK[row.plan] || 0;
+    const pr = prev ? PLAN_RANK[prev.plan] || 0 : -1;
+    if (!prev || r > pr) byUser.set(row.user_id, row);
+  }
+  return [...byUser.values()];
 }
 
 // ── Audit: log raw parsed items to Supabase before Claude sees them ──────────

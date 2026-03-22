@@ -19,7 +19,18 @@ exports.handler = async function (event) {
     try {
       const { data: user, error: uErr } = await supabase.from("users").upsert({ email }, { onConflict: "email", ignoreDuplicates: false }).select("id").single();
       if (uErr) throw uErr;
-      const { error: sErr } = await supabase.from("subscriptions").upsert({ user_id: user.id, stripe_customer_id: session.customer, stripe_subscription_id: session.subscription, plan, status: "active" }, { onConflict: "stripe_subscription_id" });
+      const subPayload = {
+        user_id: user.id,
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: session.subscription,
+        plan,
+        status: "active",
+        trial_ends_at: null,
+      };
+      const { data: existingSub } = await supabase.from("subscriptions").select("id").eq("user_id", user.id).maybeSingle();
+      const { error: sErr } = existingSub
+        ? await supabase.from("subscriptions").update(subPayload).eq("user_id", user.id)
+        : await supabase.from("subscriptions").insert(subPayload);
       if (sErr) throw sErr;
       console.log("User saved:", email, plan);
     } catch (err) {

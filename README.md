@@ -2,6 +2,27 @@
 
 UK employer compliance alerts: landing pages, Stripe checkout, Netlify Functions (daily digest / quiet-day email), Supabase, Resend, Anthropic.
 
+## Free trial (14 gün, kart yok)
+
+- **`trial.html`** — Kayıt formu (ad, soyad, iş e-postası, şirket, sektör, rol, şirket büyüklüğü, isteğe bağlı not).
+- **`register-trial`** Netlify fonksiyonu — Supabase’e `users` + `subscriptions` (`plan: trial`, `trial_ends_at`) yazar; aynı e-posta ile ikinci trial engellenir (`trial_used_at`).
+- **`trial-welcome.html`** — Başarı sonrası yönlendirme.
+- **Günlük mail:** `send-alerts-background` aktif abonelikleri çeker; `plan === 'trial'` ve `trial_ends_at` geçmişse o kullanıcıya mail gitmez.
+
+### Supabase migration (profil + trial kolonları)
+
+SQL Editor’da çalıştırın:
+
+- `supabase/migrations/20260322120000_users_profile_and_trial.sql`
+
+`subscriptions` tablosunda `stripe_customer_id` / `stripe_subscription_id` için **NULL** izni trial satırları içindir. Stripe ödemesi sonrası webhook aynı `user_id` satırını günceller.
+
+### Netlify (isteğe bağlı)
+
+| Değişken | Açıklama |
+|----------|-----------|
+| `TRIAL_DAYS` | Varsayılan **14**. 1–90 arası güvenli sınır. |
+
 ## Supabase: audit tabloları
 
 `send-alerts-background` fonksiyonu iki tabloya yazar:
@@ -15,9 +36,10 @@ UK employer compliance alerts: landing pages, Stripe checkout, Netlify Functions
 
 1. [Supabase Dashboard](https://supabase.com/dashboard) → projenizi seçin.
 2. Sol menüden **SQL Editor** → **New query**.
-3. Bu dosyanın içeriğini açıp yapıştırın ve **Run**:
+3. Bu dosyaları sırayla açıp yapıştırın ve **Run**:
    - `supabase/migrations/20260321120000_raw_feed_logs_and_feed_fetch_errors.sql`
-4. **Table Editor**’da `raw_feed_logs` ve `feed_fetch_errors` tablolarının oluştuğunu doğrulayın.
+   - `supabase/migrations/20260322120000_users_profile_and_trial.sql` *(ücretsiz deneme + profil kolonları)*
+4. **Table Editor**’da tabloların oluştuğunu doğrulayın.
 
 > Tablolar yoksa fonksiyon çalışırken insert hataları log’a düşer; mail akışı diğer feed’lerle devam edebilir ama denetim/hata kaydı eksik kalır.
 
@@ -92,7 +114,8 @@ Bu sınırlar dışında, fetch/parse hatası olursa kayıt **`feed_fetch_errors
 
 ## Proje yapısı (kısa)
 
-- `index.html`, `dashboard.html`, `success.html` — arayüz
+- `index.html`, `trial.html`, `trial-welcome.html`, `dashboard.html`, `success.html` — arayüz
 - `netlify/functions/send-alerts-background.js` — günlük tarama ve mail
+- `netlify/functions/register-trial.js` — ücretsiz deneme kaydı
 - `netlify/functions/create-checkout-session.js`, `stripe-webhook.js` — abonelik
 - `netlify/functions/dashboard-alerts.js` — alert geçmişi

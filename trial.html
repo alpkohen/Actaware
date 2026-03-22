@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Start your free trial — ActAware</title>
+  <meta name="description" content="14-day free trial of UK employer compliance alerts. No card required. Tell us about your organisation — we use this to improve your briefings over time.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #0B1829;
+      --gold: #C9922A;
+      --green: #1D9E75;
+      --white: #ffffff;
+      --off-white: #F8F7F4;
+      --border: #E8E5DF;
+      --text: #1C1C1C;
+      --text-mid: #4A4A4A;
+      --text-muted: #8A8A8A;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--off-white);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    header {
+      background: var(--navy);
+      padding: 0 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--white);
+      text-decoration: none;
+      letter-spacing: -0.3px;
+    }
+    .logo span { color: var(--gold); }
+    header nav a {
+      color: rgba(255,255,255,0.7);
+      font-size: 14px;
+      text-decoration: none;
+      margin-left: 24px;
+    }
+    header nav a:hover { color: var(--white); }
+    .wrap {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(28px, 4vw, 36px);
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -0.6px;
+      line-height: 1.15;
+      margin-bottom: 12px;
+    }
+    .lead {
+      color: var(--text-mid);
+      font-size: 17px;
+      margin-bottom: 32px;
+      line-height: 1.55;
+    }
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 28px 32px;
+      box-shadow: 0 4px 24px rgba(11,24,41,0.06);
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--navy);
+      margin: 28px 0 16px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+    .section-title:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-mid);
+      margin-bottom: 6px;
+    }
+    .req { color: #b45309; }
+    .field { margin-bottom: 18px; }
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+      font-family: inherit;
+      background: var(--off-white);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--navy);
+      background: var(--white);
+    }
+    textarea { min-height: 88px; resize: vertical; }
+    .hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+    .row2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
+    .hp {
+      position: absolute;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .check {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin: 20px 0;
+    }
+    .check input { width: 18px; height: 18px; margin-top: 3px; flex-shrink: 0; }
+    .check label { margin: 0; font-weight: 500; font-size: 14px; color: var(--text-mid); }
+    .submit-wrap { margin-top: 28px; }
+    .btn {
+      width: 100%;
+      padding: 15px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      background: var(--gold);
+      color: var(--navy);
+      transition: opacity 0.2s;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.92; }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .form-error {
+      display: none;
+      padding: 12px 14px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      color: #991b1b;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .form-error.visible { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(11,24,41,0.25);
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    footer {
+      text-align: center;
+      padding: 32px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    footer a { color: var(--text-mid); }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/" class="logo">Act<span>Aware</span></a>
+    <nav>
+      <a href="/#how-it-works">How it works</a>
+      <a href="/#pricing">Pricing</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <div class="badge">14-day free trial</div>
+    <h1>Create your trial account</h1>
+    <p class="lead">No payment details. You’ll get the same morning UK employer compliance briefings as paying customers. We ask a few questions about your organisation so we can tailor content by sector in the future.</p>
+
+    <div class="card">
+      <div id="form-error" class="form-error" role="alert"></div>
+      <form id="trial-form" novalidate>
+        <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+        <div class="section-title">Your details</div>
+        <div class="row2">
+          <div class="field">
+            <label for="firstName">First name <span class="req">*</span></label>
+            <input type="text" id="firstName" name="firstName" required autocomplete="given-name" maxlength="80">
+          </div>
+          <div class="field">
+            <label for="lastName">Last name <span class="req">*</span></label>
+            <input type="text" id="lastName" name="lastName" required autocomplete="family-name" maxlength="80">
+          </div>
+        </div>
+        <div class="field">
+          <label for="email">Work email <span class="req">*</span></label>
+          <input type="email" id="email" name="email" required autocomplete="email" maxlength="254" placeholder="you@company.co.uk">
+        </div>
+        <div class="field">
+          <label for="phone">Phone <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
+          <input type="tel" id="phone" name="phone" autocomplete="tel" maxlength="40" placeholder="+44 …">
+        </div>
+
+        <div class="section-title">Organisation</div>
+        <div class="field">
+          <label for="companyName">Company or organisation name <span class="req">*</span></label>
+          <input type="text" id="companyName" name="companyName" required autocomplete="organization" maxlength="200">
+        </div>
+        <div class="field">
+          <label for="jobTitle">Your role / job title <span class="req">*</span></label>
+          <input type="text" id="jobTitle" name="jobTitle" required autocomplete="organization-title" maxlength="120" placeholder="e.g. HR Director, People Partner">
+        </div>
+        <div class="field">
+          <label for="industry">Sector <span class="req">*</span></label>
+          <select id="industry" name="industry" required>
+            <option value="">Select sector…</option>
+            <option value="Professional services">Professional services</option>
+            <option value="Technology / IT">Technology / IT</option>
+            <option value="Healthcare & social care">Healthcare & social care</option>
+            <option value="Retail & hospitality">Retail & hospitality</option>
+            <option value="Manufacturing & engineering">Manufacturing & engineering</option>
+            <option value="Finance & insurance">Finance & insurance</option>
+            <option value="Education">Education</option>
+            <option value="Non-profit / charity">Non-profit / charity</option>
+            <option value="Public sector">Public sector</option>
+            <option value="Construction">Construction</option>
+            <option value="Transport & logistics">Transport & logistics</option>
+            <option value="Other">Other</option>
+          </select>
+          <p class="hint">Used to prioritise sector-relevant context in alerts over time.</p>
+        </div>
+        <div class="field">
+          <label for="companySize">Company size (UK employees) <span class="req">*</span></label>
+          <select id="companySize" name="companySize" required>
+            <option value="">Select…</option>
+            <option value="1-9">1–9</option>
+            <option value="10-49">10–49</option>
+            <option value="50-249">50–249</option>
+            <option value="250-999">250–999</option>
+            <option value="1000+">1,000+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="notes">Anything we should know? <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
+          <textarea id="notes" name="notes" maxlength="500" placeholder="e.g. multi-site retail, mostly contractors…"></textarea>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="consent" name="consent" required value="1">
+          <label for="consent">I agree to receive ActAware compliance emails during my trial, and I understand summaries are informational only and not legal advice. <span class="req">*</span></label>
+        </div>
+
+        <div class="submit-wrap">
+          <button type="submit" class="btn" id="submit-btn">Start my 14-day trial</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer>
+    <a href="/">Home</a> · <a href="/#pricing">Pricing</a> · <a href="mailto:hello@actaware.co.uk">Contact</a>
+  </footer>
+
+  <script>
+    (function () {
+      var form = document.getElementById('trial-form');
+      var errEl = document.getElementById('form-error');
+      var btn = document.getElementById('submit-btn');
+
+      function showErr(msg) {
+        errEl.textContent = msg || '';
+        errEl.classList.toggle('visible', !!msg);
+      }
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        showErr('');
+        if (!document.getElementById('consent').checked) {
+          showErr('Please tick the box to confirm you agree to receive trial emails.');
+          return;
+        }
+        var payload = {
+          firstName: document.getElementById('firstName').value.trim(),
+          lastName: document.getElementById('lastName').value.trim(),
+          email: document.getElementById('email').value.trim(),
+          phone: document.getElementById('phone').value.trim(),
+          companyName: document.getElementById('companyName').value.trim(),
+          jobTitle: document.getElementById('jobTitle').value.trim(),
+          industry: document.getElementById('industry').value,
+          companySize: document.getElementById('companySize').value,
+          notes: document.getElementById('notes').value.trim(),
+          consent: true,
+          website: document.querySelector('input[name="website"]').value
+        };
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Creating your trial…';
+        try {
+          var res = await fetch('/.netlify/functions/register-trial', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          var data = {};
+          try { data = await res.json(); } catch (x) {}
+          if (res.ok && data.ok) {
+            var q = data.trialEndsAt ? '?until=' + encodeURIComponent(data.trialEndsAt) : '';
+            window.location.href = '/trial-welcome.html' + q;
+            return;
+          }
+          showErr(data.error || 'Something went wrong. Please try again.');
+        } catch (x) {
+          showErr('Network error. Check your connection and try again.');
+        }
+        btn.disabled = false;
+        btn.textContent = 'Start my 14-day trial';
+      });
+    })();
+  </script>
+</body>
+</html>
