@@ -106,6 +106,42 @@
     .alert-card.shared { border-left: 3px solid #6366f1; }
     .badge-shared { background: #e0e7ff; color: #3730a3; }
     .alert-card.shared .alert-summary { max-height: 420px; overflow-y: auto; }
+    .dash-panel {
+      background: white;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+    .dash-panel h3 { font-size: 15px; font-weight: 700; color: #111; margin: 0 0 12px; }
+    .milestone-list { display: flex; flex-direction: column; gap: 10px; }
+    .milestone-item {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 10px 12px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fafafa;
+    }
+    .milestone-item.critical { border-color: #fecaca; background: #fef2f2; }
+    .milestone-item.high { border-color: #fde68a; background: #fffbeb; }
+    .milestone-date { font-size: 12px; font-weight: 700; color: #374151; min-width: 92px; flex-shrink: 0; }
+    .milestone-body { font-size: 13px; color: #4b5563; line-height: 1.5; }
+    .milestone-body strong { color: #111; display: block; margin-bottom: 4px; }
+    .score-bar-wrap { margin-bottom: 14px; }
+    .score-bar-bg { height: 10px; background: #e5e7eb; border-radius: 100px; overflow: hidden; }
+    .score-bar-fill { height: 100%; background: linear-gradient(90deg, #1e3051, #C9922A); border-radius: 100px; transition: width 0.3s ease; }
+    .score-label { font-size: 13px; color: #6b7280; margin-top: 6px; }
+    .checklist-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; color: #374151; }
+    .checklist-item:last-child { border-bottom: none; }
+    .checklist-item input { margin-top: 3px; flex-shrink: 0; }
+    .checklist-cat { font-size: 11px; font-weight: 600; color: #6366f1; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 12px; }
+    .checklist-cat:first-child { margin-top: 0; }
+    .pro-filters { display: none; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; }
+    .pro-filters.visible { display: flex; }
+    .pro-filters label { font-size: 11px; font-weight: 600; color: #6b7280; display: block; margin-bottom: 4px; }
+    .pro-filters select, .pro-filters input[type="text"], .pro-filters input[type="date"] {
+      font-size: 13px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; min-width: 0;
+    }
+    .pro-filters .ff { display: flex; flex-direction: column; }
+    .checklist-locked-note { font-size: 13px; color: #6b7280; background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 12px; line-height: 1.5; }
+    .checklist-locked-note a { color: #1e3051; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -147,10 +183,60 @@
       <button type="button" id="btn-sign-out" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;color:#6b7280;">Sign out</button>
     </div>
     <div class="archive-banner" id="archive-banner" style="display:none;"></div>
+
+    <div class="dash-panel" id="panel-calendar">
+      <h3>Compliance calendar</h3>
+      <p style="font-size:13px;color:#6b7280;margin:-6px 0 12px;line-height:1.5;">Key UK employer dates we’re tracking — add them to your own planning.</p>
+      <div class="milestone-list" id="milestone-list"></div>
+    </div>
+
+    <div class="dash-panel" id="panel-score">
+      <h3>Compliance score</h3>
+      <p style="font-size:13px;color:#6b7280;margin:-6px 0 12px;line-height:1.5;">Track practical readiness against common obligations. This is guidance only, not an audit.</p>
+      <div class="score-bar-wrap">
+        <div class="score-bar-bg"><div class="score-bar-fill" id="score-bar-fill" style="width:0%"></div></div>
+        <div class="score-label" id="score-label">Loading…</div>
+      </div>
+      <div class="checklist-locked-note" id="checklist-locked" hidden>
+        <strong>Professional &amp; Agency</strong> — save your checklist progress here.
+        <a href="/#pricing">View plans</a> or upgrade from your Account page.
+      </div>
+      <div id="checklist-body"></div>
+    </div>
+
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="Search alerts (e.g. SSP, paternity, NMW)...">
       <button type="button" id="btn-search">Search</button>
     </div>
+
+    <div class="pro-filters" id="pro-filters">
+      <div class="ff">
+        <label for="filter-importance">Importance</label>
+        <select id="filter-importance">
+          <option value="all">All</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+        </select>
+      </div>
+      <div class="ff" style="flex:1;min-width:140px;">
+        <label for="filter-source">Source contains</label>
+        <input type="text" id="filter-source" placeholder="e.g. HMRC, ICO">
+      </div>
+      <div class="ff">
+        <label for="filter-from">From</label>
+        <input type="date" id="filter-from">
+      </div>
+      <div class="ff">
+        <label for="filter-to">To</label>
+        <input type="date" id="filter-to">
+      </div>
+      <div class="ff" style="justify-content:flex-end;">
+        <label>&nbsp;</label>
+        <button type="button" id="btn-clear-filters" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;">Clear filters</button>
+      </div>
+    </div>
+
     <div id="alerts-list"></div>
   </div>
 </div>
@@ -182,8 +268,84 @@
   let session = null;
   let allAlerts = [];
   let lastLoadedAuthUserId = null;
+  let dashboardMeta = {};
+  let dashboardCompliance = null;
 
   const el = (id) => document.getElementById(id);
+
+  function buildAlertsPayload() {
+    const payload = {};
+    const q = el("search-input").value.trim();
+    if (q) payload.search = q;
+    const imp = el("filter-importance")?.value;
+    if (imp && imp !== "all") payload.importance = imp;
+    const src = el("filter-source")?.value.trim();
+    if (src) payload.source = src;
+    const df = el("filter-from")?.value;
+    const dt = el("filter-to")?.value;
+    if (df) payload.dateFrom = df;
+    if (dt) payload.dateTo = dt;
+    return payload;
+  }
+
+  async function fetchCompliance(accessToken) {
+    const res = await fetch("/.netlify/functions/dashboard-compliance", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.warn("compliance:", data.error || res.status);
+      return null;
+    }
+    return data;
+  }
+
+  function renderMilestones(milestones) {
+    const ml = el("milestone-list");
+    if (!ml || !milestones?.length) {
+      if (ml) ml.innerHTML = "<p style='font-size:13px;color:#9ca3af;'>No milestones loaded.</p>";
+      return;
+    }
+    const sorted = [...milestones].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    ml.innerHTML = sorted
+      .map((m) => {
+        const urg =
+          m.urgency === "critical" ? "critical" : m.urgency === "high" ? "high" : "";
+        const d = escapeHtml(m.date);
+        const title = escapeHtml(m.title);
+        const detail = escapeHtml(m.detail || "");
+        return `<div class="milestone-item ${urg}"><div class="milestone-date">${d}</div><div class="milestone-body"><strong>${title}</strong>${detail ? `<br>${detail}` : ""}</div></div>`;
+      })
+      .join("");
+  }
+
+  function renderChecklistUI(comp) {
+    if (!comp) return;
+    const fill = el("score-bar-fill");
+    const label = el("score-label");
+    const locked = el("checklist-locked");
+    const body = el("checklist-body");
+    const pct = typeof comp.scorePercent === "number" ? comp.scorePercent : 0;
+    if (fill) fill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+    if (label) {
+      label.textContent = `${comp.doneCount ?? 0} / ${comp.totalChecklistItems ?? 0} items complete (${pct}%)`;
+    }
+    if (locked) locked.hidden = !!comp.checklistEditable;
+    const items = comp.checklistItems || [];
+    let html = "";
+    let lastCat = "";
+    for (const it of items) {
+      if (it.category !== lastCat) {
+        lastCat = it.category;
+        html += `<div class="checklist-cat">${escapeHtml(it.category)}</div>`;
+      }
+      const done = !!comp.completed[it.id];
+      const dis = comp.checklistEditable ? "" : " disabled";
+      html += `<label class="checklist-item"><input type="checkbox" data-checklist-id="${escapeHtml(it.id)}"${done ? " checked" : ""}${dis}> <span>${escapeHtml(it.title)}</span></label>`;
+    }
+    if (body) body.innerHTML = html || "<p style='font-size:13px;color:#9ca3af;'>No checklist items.</p>";
+  }
 
   function setSessionChecking(show) {
     const box = el("session-checking");
@@ -277,14 +439,14 @@
     list.innerHTML = parts.join("");
   }
 
-  async function fetchAlerts(accessToken, search) {
+  async function fetchAlerts(accessToken, payload = {}) {
     const res = await fetch("/.netlify/functions/dashboard-alerts", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ search: search || undefined }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) {
@@ -305,12 +467,23 @@
       return;
     }
     session = sess;
-    const data = await fetchAlerts(sess.access_token, "");
+    const token = sess.access_token;
+    const [data, comp] = await Promise.all([
+      fetchAlerts(token, buildAlertsPayload()),
+      fetchCompliance(token),
+    ]);
     lastLoadedAuthUserId = uid || null;
     allAlerts = data.alerts || [];
+    dashboardMeta = data.meta || {};
+    dashboardCompliance = comp;
     el("login-section").style.display = "none";
     el("dashboard-section").style.display = "block";
     showLoginMsg("", false);
+    el("pro-filters")?.classList.toggle("visible", !!dashboardMeta.proFilters);
+    if (comp) {
+      renderMilestones(comp.milestones);
+      renderChecklistUI(comp);
+    }
     renderAlerts(allAlerts, data.sharedBriefings || [], data.meta);
   }
 
@@ -461,14 +634,52 @@
       el("login-password").value = "";
     });
 
-    el("btn-search").addEventListener("click", async () => {
+    async function refreshAlertsOnly() {
       if (!session?.access_token) return;
-      const search = el("search-input").value.trim();
       try {
-        const data = await fetchAlerts(session.access_token, search);
+        const data = await fetchAlerts(session.access_token, buildAlertsPayload());
+        dashboardMeta = data.meta || {};
+        el("pro-filters")?.classList.toggle("visible", !!dashboardMeta.proFilters);
         renderAlerts(data.alerts || [], data.sharedBriefings || [], data.meta);
       } catch (e) {
         el("alerts-list").innerHTML = `<div class='empty'>${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    el("btn-search").addEventListener("click", () => refreshAlertsOnly());
+
+    el("btn-clear-filters")?.addEventListener("click", () => {
+      el("filter-importance").value = "all";
+      el("filter-source").value = "";
+      el("filter-from").value = "";
+      el("filter-to").value = "";
+      refreshAlertsOnly();
+    });
+
+    el("checklist-body")?.addEventListener("change", async (ev) => {
+      const t = ev.target;
+      if (t.type !== "checkbox" || !t.getAttribute("data-checklist-id")) return;
+      if (!dashboardCompliance?.checklistEditable || !session?.access_token) return;
+      const itemId = t.getAttribute("data-checklist-id");
+      try {
+        const res = await fetch("/.netlify/functions/dashboard-compliance", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ itemId, done: t.checked }),
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(out.error || "Could not save");
+        const comp = await fetchCompliance(session.access_token);
+        if (comp) {
+          dashboardCompliance = comp;
+          renderChecklistUI(comp);
+        }
+      } catch (err) {
+        t.checked = !t.checked;
+        alert(err.message || "Could not update checklist");
       }
     });
 

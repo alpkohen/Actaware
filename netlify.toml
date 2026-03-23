@@ -25,6 +25,11 @@
 [functions."send-critical-alerts-background"]
   schedule = "15 */2 * * *"
 
+# Hourly; sends only Fri 16:00 Europe/London — Professional / Agency weekly recap.
+[functions."send-weekly-summary-background"]
+  schedule = "0 * * * *"
+  timeout = 120
+
 # Extended timeout for AI quality test (23 Claude calls ~90s total).
 [functions."test-ai-quality"]
   timeout = 300

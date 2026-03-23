@@ -52,17 +52,22 @@ SQL Editor’da çalıştırın:
 
 | Özellik | Durum |
 |--------|--------|
-| Günlük özet + **genişletilmiş analiz** (severity, governance, timeline, cross-checks) | ✅ `send-alerts-background` — Professional/Agency için ayrı Claude çağrısı (`digestTier: professional`) |
-| **24 saat içinde CRITICAL** ek e-posta | ✅ `send-critical-alerts-background` — 2 saatte bir cron, son ~24 saat, yalnız CRITICAL; `sent_alerts` ile 36 saat dedupe |
-| **seat_limit** (Starter 1, Pro 3, Agency 15) | ✅ Stripe webhook + migration; çoklu kullanıcı davet UI henüz yok |
-| Slack / Teams | ❌ Henüz yok (roadmap) |
+| Günlük özet + **genişletilmiş analiz** (severity, governance, timeline, cross-checks) | ✅ `send-alerts-background` — `digestTier: professional` |
+| **Sektör özeti** (günlük e-posta üstü) | ✅ Aynı fonksiyon — `users.industry` doluysa ek Haiku çağrısı |
+| **Haftalık özet** (Cuma ~16:00 Europe/London) | ✅ `send-weekly-summary-background` — saatlik cron; `weekly_summary_log` ile dedupe |
+| **CRITICAL** ek e-posta (digest dışı) | ✅ `send-critical-alerts-background` — ~2 saatte bir |
+| My alerts: **takvim + uyumluluk skoru / checklist** | ✅ `dashboard-compliance` + migration `20260328120000_*` |
+| My alerts: **gelişmiş filtreler** | ✅ `dashboard-alerts` — importance, source, tarih (yalnız Pro/Agency aktif) |
+| **seat_limit** (DB) | ✅ Stripe webhook + migration; ürün metninde öne çıkmıyor |
+| Slack / Teams, Agency white-label / API (landing) | ⚠️ Satış / yol haritası; kodda entegrasyon yok |
 
 ## My alerts (`dashboard.html`) — e-posta + şifre + planlı arşiv
 
 - **Giriş:** Supabase **Email + password** (`signInWithPassword`). Trial ve yeni ücretli kayıtta şifre **Netlify fonksiyonuna** (HTTPS) gider; sunucu `auth.admin.createUser` ile kullanıcıyı **doğrudan onaylı** oluşturur — Supabase “confirm email” e-postasına ihtiyaç yok. **Upgrade** akışında hâlâ tarayıcı **Bearer JWT** kullanılır. `dashboard-alerts` yalnızca geçerli **JWT** ile çalışır.
 - **Şifre sıfırlama:** `dashboard.html` → “Forgot password?” → e-posta; kullanıcı `reset-password.html` üzerinden yeni şifre belirler (`resetPasswordForEmail` + `updateUser`).
 - **Arşiv:** **Professional** ve **Agency** + `subscriptions.status === 'active'` → son **500** uyarıya kadar tam geçmiş; **Starter**, **trial**, pasif veya diğer → son **30 gün** ve en fazla **100** kayıt.
-- **Netlify fonksiyonları:** `public-config` (GET) tarayıcıya `SUPABASE_URL` + `SUPABASE_ANON_KEY` döner; `dashboard-alerts` JWT’yi anon istemciyle doğrular, sorguları **service role** ile yapar.
+- **Takvim / checklist:** `dashboard-compliance` (GET/POST, JWT). Checklist yazımı yalnız **Professional** ve **Agency** + `active`.
+- **Netlify fonksiyonları:** `public-config` (GET); `dashboard-alerts` (POST); `dashboard-compliance` (GET/POST); sorgular **service role** ile.
 
 ### Supabase Auth ayarları
 
@@ -82,7 +87,7 @@ SQL Editor’da çalıştırın:
 |----------|-----------|
 | `CRITICAL_ALERTS_DISABLED` | `true` ise kritik pulse fonksiyonu hiç çalışmaz (maliyet kesmek için) |
 
-Zamanlama: `netlify.toml` içinde `send-critical-alerts-background` → **`15 */2 * * *`** (UTC, yaklaşık 2 saatte bir).
+Zamanlama: `netlify.toml` — `send-critical-alerts-background` → **`15 */2 * * *`**; `send-weekly-summary-background` → saatlik **`0 * * * *`**, fonksiyon içinde Cuma 16:00 Europe/London kontrolü. `WEEKLY_SUMMARY_DISABLED=true` veya `WEEKLY_SUMMARY_TEST_RUN=true` (test) desteklenir.
 
 ## Supabase: audit tabloları
 
@@ -104,6 +109,8 @@ Zamanlama: `netlify.toml` içinde `send-critical-alerts-background` → **`15 */
    - `supabase/migrations/20260324120000_subscriptions_seat_limit.sql` *(koltuk limiti)*
    - `supabase/migrations/20260325120000_subscriptions_unique_user_id.sql` *(duplicate temizliği + `user_id` UNIQUE)*
    - `supabase/migrations/20260326120000_digest_snapshots.sql` *(günlük standart özet kopyası — `dashboard.html` boşken son 30 gün)*
+   - `supabase/migrations/20260327120000_auth_email_exists.sql` *(şifre sıfırlama öncesi e-posta kontrolü)*
+   - `supabase/migrations/20260328120000_compliance_checklist_weekly_log.sql` *(checklist + haftalık özet dedupe)*
 4. **Table Editor**’da tabloların oluştuğunu doğrulayın.
 
 > Tablolar yoksa fonksiyon çalışırken insert hataları log’a düşer; mail akışı diğer feed’lerle devam edebilir ama denetim/hata kaydı eksik kalır.

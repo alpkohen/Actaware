@@ -1,5 +1,6 @@
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
+const { getResendFrom } = require("./lib/resend-from");
 const {
   RSS_FEEDS,
   MONITORED_FEED_COUNT,
@@ -75,6 +76,71 @@ Source: [URL]${proBlocks}`;
     throw new Error(`Anthropic empty or invalid content: ${JSON.stringify(data).slice(0, 400)}`);
   }
   return text;
+}
+
+function escapeHtmlAttr(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Professional/Agency: short sector-specific angle on today's digest (one Haiku call per subscriber).
+ */
+async function buildSectorNoteForSubscriber(alertSections, industry, companyName) {
+  const ind = String(industry || "").trim();
+  if (!ind || !process.env.ANTHROPIC_API_KEY) return "";
+
+  const excerpt = (alertSections || [])
+    .map((s) => `[${s.source}]\n${String(s.content || "").slice(0, 2500)}`)
+    .join("\n\n---\n\n")
+    .slice(0, 14000);
+  if (!excerpt.trim()) return "";
+
+  const prompt = `The employer receives a UK employer compliance digest. Their sector/industry is: "${ind}".
+Company (may be empty): "${String(companyName || "").trim()}".
+
+Digest excerpts (from official UK sources, as summarised):
+---
+${excerpt}
+---
+
+Write exactly 3 bullet points in plain text. Each line must start with "- " (dash then space). Say which themes above matter most for employers in this sector and any sector-specific watch-outs. Do not invent legal facts not hinted in the excerpts; if thin, say what to monitor generally. No HTML, no numbering besides the dash.`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 400,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    console.warn("sector note Anthropic:", response.status, JSON.stringify(data).slice(0, 200));
+    return "";
+  }
+  const raw = data?.content?.[0]?.text;
+  if (typeof raw !== "string" || !raw.trim()) return "";
+
+  const lines = raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("-"));
+  if (!lines.length) return "";
+  const items = lines
+    .map((l) => {
+      const t = escapeHtmlAttr(l.replace(/^-\s*/, ""));
+      return `<li style="margin:6px 0;line-height:1.5;">${t}</li>`;
+    })
+    .join("");
+  return `<ul style="margin:0;padding-left:20px;">${items}</ul>`;
 }
 
 const PLAN_RANK = { agency: 4, professional: 3, starter: 2, trial: 1 };
@@ -459,7 +525,7 @@ function formatUKDate(d) {
   });
 }
 
-function buildEmailHTML(companyName, alertSections, dateLabel) {
+function buildEmailHTML(companyName, alertSections, dateLabel, sectorNoteHtml = "") {
   const allCards = alertSections.flatMap(section =>
     parseAlertsFromText(section.content, section.source)
   );
@@ -505,6 +571,14 @@ function buildEmailHTML(companyName, alertSections, dateLabel) {
           Here are today's UK employer compliance updates from our monitored official sources:
         </p>
       </td></tr>
+      ${
+        sectorNoteHtml
+          ? `<tr><td style="background:#fffbeb;border-left:4px solid #f59e0b;padding:16px 32px;">
+        <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:0.5px;">Tailored to your sector</p>
+        <div style="font-size:14px;color:#451a03;">${sectorNoteHtml}</div>
+      </td></tr>`
+          : ""
+      }
       <tr><td style="background:#ffffff;padding:16px 32px;">
         ${sectionsHTML}
       </td></tr>
@@ -750,7 +824,7 @@ exports.handler = async function () {
       if (isQuietDay) {
         const html = buildQuietDayEmailHTML(sub.users.company_name, dateLabel);
         await resend.emails.send({
-          from: "ActAware <onboarding@resend.dev>",
+          from: getResendFrom(),
           to: sub.users.email,
           subject: `${mailTestPrefix}ActAware: All quiet — UK employer sources (${shortDate})`,
           html,
@@ -768,10 +842,22 @@ exports.handler = async function () {
           });
         }
       } else {
-        const html = buildEmailHTML(sub.users.company_name, alertSections, dateLabel);
+        let sectorNoteHtml = "";
+        if (pro && sub.users?.industry) {
+          try {
+            sectorNoteHtml = await buildSectorNoteForSubscriber(
+              alertSections,
+              sub.users.industry,
+              sub.users.company_name
+            );
+          } catch (secErr) {
+            console.warn(`Sector note skipped for ${sub.users?.email}: ${secErr.message}`);
+          }
+        }
+        const html = buildEmailHTML(sub.users.company_name, alertSections, dateLabel, sectorNoteHtml);
         const subjPro = pro ? " [Professional]" : "";
         await resend.emails.send({
-          from: "ActAware <onboarding@resend.dev>",
+          from: getResendFrom(),
           to: sub.users.email,
           subject: `${mailTestPrefix}UK Employer Compliance${subjPro} — ${shortDate}`,
           html,

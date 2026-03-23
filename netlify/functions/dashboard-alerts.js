@@ -127,7 +127,12 @@ exports.handler = async function (event) {
   const emailNorm = String(authUser.email).trim().toLowerCase();
 
   try {
-    const { search } = JSON.parse(event.body || "{}");
+    const body = JSON.parse(event.body || "{}");
+    const search = body.search;
+    const importance = String(body.importance || "all").toLowerCase();
+    const sourceFilter = String(body.source || "").trim().toLowerCase();
+    const dateFrom = body.dateFrom ? String(body.dateFrom).trim() : "";
+    const dateTo = body.dateTo ? String(body.dateTo).trim() : "";
 
     const { data: dbUser, error: userErr } = await supabaseAdmin
       .from("users")
@@ -158,6 +163,15 @@ exports.handler = async function (event) {
     const plan = subRow?.plan || "starter";
     const status = subRow?.status || "inactive";
     const unlimited = fullArchiveEligible(plan, status);
+    const proTools =
+      status === "active" && (plan === "professional" || plan === "agency");
+
+    const useAdvancedFilters =
+      proTools &&
+      (importance !== "all" ||
+        sourceFilter ||
+        (dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) ||
+        (dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo)));
 
     let query = supabaseAdmin
       .from("sent_alerts")
@@ -172,15 +186,31 @@ exports.handler = async function (event) {
       query = query.gte("sent_at", since.toISOString());
     }
 
-    if (search && String(search).trim()) {
-      query = query.ilike("alert_summary", `%${String(search).trim()}%`);
+    const searchTrim = search && String(search).trim();
+    if (searchTrim) {
+      const q = searchTrim.replace(/%/g, "\\%").replace(/_/g, "\\_");
+      query = query.or(`alert_summary.ilike.%${q}%,alert_title.ilike.%${q}%`);
+    }
+
+    if (useAdvancedFilters) {
+      if (importance !== "all" && ["critical", "high", "medium", "low"].includes(importance)) {
+        query = query.eq("importance", importance);
+      }
+      if (sourceFilter) {
+        query = query.ilike("alert_source", `%${sourceFilter}%`);
+      }
+      if (dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
+        query = query.gte("sent_at", `${dateFrom}T00:00:00.000Z`);
+      }
+      if (dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+        query = query.lte("sent_at", `${dateTo}T23:59:59.999Z`);
+      }
     }
 
     const { data: alerts, error: qErr } = await query;
     if (qErr) throw qErr;
 
-    const personal = alerts || [];
-    const searchTrim = search && String(search).trim();
+    let personal = alerts || [];
 
     let sharedBriefings = [];
     if (personal.length === 0) {
@@ -216,6 +246,7 @@ exports.handler = async function (event) {
           archiveDays: unlimited ? null : ARCHIVE_DAYS_LIMITED,
           showingSharedBriefings: personal.length === 0 && sharedBriefings.length > 0,
           digestSnapshotsInWindow,
+          proFilters: proTools,
         },
       }),
     };
