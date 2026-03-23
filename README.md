@@ -14,7 +14,16 @@ UK employer compliance alerts: landing pages, Stripe checkout, Netlify Functions
 - **`trial.html`** — Kayıt formu (ad, soyad, iş e-postası, şirket, sektör, rol, şirket büyüklüğü, isteğe bağlı not).
 - **`register-trial`** Netlify fonksiyonu — Supabase’e `users` + `subscriptions` (`plan: trial`, `trial_ends_at`) yazar; aynı e-posta ile ikinci trial engellenir (`trial_used_at`).
 - **`trial-welcome.html`** — Başarı sonrası yönlendirme.
+- **Hoş geldin e-postası:** Başarılı trial kaydından sonra **`register-trial`** Resend ile “trial started” maili gönderir (`RESEND_API_KEY`, `RESEND_FROM` / `CONTACT_FORM_FROM` önerilir).
 - **Günlük mail:** `send-alerts-background` aktif abonelikleri çeker; `plan === 'trial'` ve `trial_ends_at` geçmişse o kullanıcıya mail gitmez.
+
+## Üyelik, hesap ve site başlığı
+
+- **`js/auth-header.js`** — Tüm ana sayfalarda `#auth-status`: giriş yoksa **Sign in** + **Free trial**; giriş varsa isim, plan rozeti, **Account**, **My alerts**, **Sign out** (`account-profile` GET ile plan etiketi).
+- **`account.html`** — Magic link ile giriş; profil görüntüleme / **PATCH** `account-profile`; trial veya Starter için **Upgrade** linkleri (`register.html?plan=…&upgrade=1`); ödeme yapanlar için **Manage billing** → `create-billing-portal` (Stripe Customer Portal — Dashboard’da etkinleştirilmeli).
+- **`account-profile`** — `GET` / `PATCH` + JWT (dashboard ile aynı Supabase doğrulama).
+- **`register.html?plan=…&upgrade=1`** — Oturum açıksa form `account-profile` ile doldurulur, e-posta salt okunur; gövdede `upgrade: true` ve `Authorization: Bearer …` ile **`register-and-checkout`** JWT e-posta eşleşmesini doğrular.
+- **Ödeme onay e-postası:** **`stripe-webhook`** içinde `checkout.session.completed` sonrası Resend ile “subscription confirmed” gönderilir (`success.html` ile uyumlu).
 
 ### Supabase migration (profil + trial kolonları)
 
@@ -30,7 +39,7 @@ SQL Editor’da çalıştırın:
 |----------|-----------|
 | `TRIAL_DAYS` | Varsayılan **14**. 1–90 arası güvenli sınır. |
 | `CONTACT_FORM_NOTIFY_EMAIL` | İletişim formu bildirimi (Resend). Boşsa **`alpkohen67@gmail.com`** kullanılır. |
-| `CONTACT_FORM_FROM` / `RESEND_FROM` | Resend “from” adresi; yoksa `ActAware <onboarding@resend.dev>` (Resend test). |
+| `CONTACT_FORM_FROM` / `RESEND_FROM` | Resend “from” adresi; yoksa `ActAware <onboarding@resend.dev>` (Resend test). Trial / ödeme onay mailleri de bunu kullanır. |
 
 ## Ücretli planlar (form → Stripe / Agency mail)
 
@@ -169,12 +178,14 @@ Bu sınırlar dışında, fetch/parse hatası olursa kayıt **`feed_fetch_errors
 
 ## Proje yapısı (kısa)
 
-- `index.html`, `trial.html`, `trial-welcome.html`, `register.html`, `dashboard.html`, `success.html` — arayüz
+- `index.html`, `trial.html`, `trial-welcome.html`, `register.html`, `account.html`, `dashboard.html`, `success.html`, `contact.html` — arayüz
+- `js/auth-header.js` — site geneli oturum rozeti (`#auth-status`)
 - `netlify/functions/send-alerts-background.js` — günlük tarama ve mail
-- `netlify/functions/register-trial.js` — ücretsiz deneme kaydı
-- `netlify/functions/register-and-checkout.js` — ücretli plan formu → Stripe veya Agency mailto
+- `netlify/functions/register-trial.js` — ücretsiz deneme kaydı + hoş geldin e-postası (Resend)
+- `netlify/functions/register-and-checkout.js` — ücretli plan / upgrade (JWT) → Stripe veya Agency mailto
+- `netlify/functions/account-profile.js` — profil + plan `GET` / `PATCH` (JWT)
+- `netlify/functions/create-billing-portal.js` — Stripe Customer Portal oturumu (JWT)
 - `netlify/functions/send-critical-alerts-background.js` — Professional/Agency CRITICAL pulse (~24 saat)
 - `netlify/functions/lib/employer-feeds.js` — paylaşılan RSS listesi + fetch/parse
-- `netlify/functions/stripe-webhook.js` — Stripe webhook handler
-- `netlify/functions/register-and-checkout.js` — kayıt + checkout akışı
+- `netlify/functions/stripe-webhook.js` — Stripe webhook + ödeme onay e-postası (Resend)
 - `netlify/functions/dashboard-alerts.js` — alert geçmişi

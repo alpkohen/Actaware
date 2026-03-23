@@ -31,11 +31,11 @@
     }
     header {
       background: var(--navy);
-      padding: 0 40px;
+      padding: 0 24px 0 40px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      height: 64px;
+      gap: 12px;
+      min-height: 64px;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
     .logo {
@@ -45,15 +45,23 @@
       color: var(--white);
       text-decoration: none;
       letter-spacing: -0.3px;
+      flex-shrink: 0;
     }
     .logo span { color: var(--gold); }
-    header nav a {
+    .site-nav {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+    }
+    .site-nav a {
       color: rgba(255,255,255,0.7);
       font-size: 14px;
       text-decoration: none;
-      margin-left: 24px;
     }
-    header nav a:hover { color: var(--white); }
+    .site-nav a:hover { color: var(--white); }
     .wrap {
       max-width: 640px;
       margin: 0 auto;
@@ -212,13 +220,15 @@
 <body>
   <header>
     <a href="/" class="logo">Act<span>Aware</span></a>
-    <nav>
+    <nav class="site-nav">
       <a href="/#how-it-works">How it works</a>
       <a href="/#pricing">Pricing</a>
       <a href="/#trust">Who we are</a>
       <a href="dashboard.html">My alerts</a>
+      <a href="account.html">Account</a>
       <a href="contact.html">Contact</a>
     </nav>
+    <div id="auth-status"></div>
   </header>
 
   <div class="wrap">
@@ -312,108 +322,154 @@
     <a href="/">Home</a> · <a href="/#pricing">Pricing</a> · <a href="/contact.html">Contact</a>
   </footer>
 
-  <script>
-    (function () {
-      var PLANS = {
-        starter: {
-          badge: 'Starter · £39/mo',
-          title: 'Subscribe — Starter',
-          lead: 'Complete your details, then continue to Stripe for secure payment. Same daily briefings as on the pricing page.',
-          consent: 'I agree to receive ActAware compliance emails after I subscribe, and I understand summaries are informational only and not legal advice.',
-          btn: 'Continue to secure checkout',
-          loading: 'Redirecting to checkout…'
-        },
-        professional: {
-          badge: 'Professional · £79/mo',
-          title: 'Subscribe — Professional',
-          lead: 'Complete your details, then continue to Stripe for secure payment. Includes critical alerts within 24h, Slack/Teams, and full archive.',
-          consent: 'I agree to receive ActAware compliance emails after I subscribe, and I understand summaries are informational only and not legal advice.',
-          btn: 'Continue to secure checkout',
-          loading: 'Redirecting to checkout…'
-        },
-        agency: {
-          badge: 'Agency · £149/mo',
-          title: 'Agency plan enquiry',
-          lead: 'Tell us about your practice. We’ll open your email client with a pre-filled message — our team typically responds within 24 hours.',
-          consent: 'I agree that ActAware may contact me about the Agency plan using the details above, and I understand summaries are informational only and not legal advice.',
-          btn: 'Open email to send enquiry',
-          loading: 'Preparing email…'
-        }
-      };
+  <script type="module">
+    import { initAuthStatus } from "/js/auth-header.js";
 
-      var params = new URLSearchParams(window.location.search);
-      var plan = (params.get('plan') || '').toLowerCase();
-      if (!PLANS[plan]) {
-        window.location.replace('/#pricing');
+    const PLANS = {
+      starter: {
+        badge: "Starter · £39/mo",
+        title: "Subscribe — Starter",
+        titleUpgrade: "Upgrade — Starter",
+        lead: "Complete your details, then continue to Stripe for secure payment. Same daily briefings as on the pricing page.",
+        leadUpgrade: "Your profile is filled in from your account. Confirm details and continue to checkout.",
+        consent:
+          "I agree to receive ActAware compliance emails after I subscribe, and I understand summaries are informational only and not legal advice.",
+        btn: "Continue to secure checkout",
+        loading: "Redirecting to checkout…",
+      },
+      professional: {
+        badge: "Professional · £79/mo",
+        title: "Subscribe — Professional",
+        titleUpgrade: "Upgrade — Professional",
+        lead: "Complete your details, then continue to Stripe for secure payment. Includes critical alerts within 24h and full archive.",
+        leadUpgrade: "Your profile is filled in from your account. Confirm details and continue to checkout.",
+        consent:
+          "I agree to receive ActAware compliance emails after I subscribe, and I understand summaries are informational only and not legal advice.",
+        btn: "Continue to secure checkout",
+        loading: "Redirecting to checkout…",
+      },
+      agency: {
+        badge: "Agency · £149/mo",
+        title: "Agency plan enquiry",
+        titleUpgrade: "Agency plan enquiry",
+        lead: "Tell us about your practice. We’ll open your email client with a pre-filled message — our team typically responds within 24 hours.",
+        leadUpgrade: "Tell us about your practice. We’ll open your email client with a pre-filled message.",
+        consent:
+          "I agree that ActAware may contact me about the Agency plan using the details above, and I understand summaries are informational only and not legal advice.",
+        btn: "Open email to send enquiry",
+        loading: "Preparing email…",
+      },
+    };
+
+    const supabase = await initAuthStatus();
+
+    const params = new URLSearchParams(window.location.search);
+    const plan = (params.get("plan") || "").toLowerCase();
+    if (!PLANS[plan]) {
+      window.location.replace("/#pricing");
+    } else {
+
+    const upgradeMode = params.get("upgrade") === "1";
+    let upgradeSession = null;
+
+    const cfg = PLANS[plan];
+    document.getElementById("plan-badge").textContent = cfg.badge;
+    document.getElementById("page-title").textContent = upgradeMode ? cfg.titleUpgrade : cfg.title;
+    document.getElementById("page-lead").textContent = upgradeMode ? cfg.leadUpgrade : cfg.lead;
+    document.getElementById("consent-label").innerHTML = cfg.consent + ' <span class="req">*</span>';
+    document.getElementById("submit-btn").textContent = cfg.btn;
+    document.title = (upgradeMode ? cfg.titleUpgrade : cfg.title) + " — ActAware";
+
+    if (upgradeMode && supabase) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        upgradeSession = session;
+        const pr = await fetch("/.netlify/functions/account-profile", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (pr.ok) {
+          const p = await pr.json();
+          document.getElementById("firstName").value = p.firstName || "";
+          document.getElementById("lastName").value = p.lastName || "";
+          document.getElementById("email").value = p.email || "";
+          document.getElementById("email").readOnly = true;
+          document.getElementById("phone").value = p.phone || "";
+          document.getElementById("companyName").value = p.companyName || "";
+          document.getElementById("jobTitle").value = p.jobTitle || "";
+          document.getElementById("industry").value = p.industry || "";
+          document.getElementById("companySize").value = p.companySize || "";
+          document.getElementById("notes").value = p.notes || "";
+        }
+      }
+    }
+
+    const form = document.getElementById("register-form");
+    const errEl = document.getElementById("form-error");
+    const btn = document.getElementById("submit-btn");
+
+    function showErr(msg) {
+      errEl.textContent = msg || "";
+      errEl.classList.toggle("visible", !!msg);
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showErr("");
+      if (!document.getElementById("consent").checked) {
+        showErr("Please tick the agreement box to continue.");
         return;
       }
-
-      var cfg = PLANS[plan];
-      document.getElementById('plan-badge').textContent = cfg.badge;
-      document.getElementById('page-title').textContent = cfg.title;
-      document.getElementById('page-lead').textContent = cfg.lead;
-      document.getElementById('consent-label').innerHTML = cfg.consent + ' <span class="req">*</span>';
-      document.getElementById('submit-btn').textContent = cfg.btn;
-      document.title = cfg.title + ' — ActAware';
-
-      var form = document.getElementById('register-form');
-      var errEl = document.getElementById('form-error');
-      var btn = document.getElementById('submit-btn');
-
-      function showErr(msg) {
-        errEl.textContent = msg || '';
-        errEl.classList.toggle('visible', !!msg);
+      const payload = {
+        plan,
+        upgrade: !!upgradeSession,
+        firstName: document.getElementById("firstName").value.trim(),
+        lastName: document.getElementById("lastName").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        companyName: document.getElementById("companyName").value.trim(),
+        jobTitle: document.getElementById("jobTitle").value.trim(),
+        industry: document.getElementById("industry").value,
+        companySize: document.getElementById("companySize").value,
+        notes: document.getElementById("notes").value.trim(),
+        consent: true,
+        website: document.querySelector('input[name="website"]').value,
+      };
+      const headers = { "Content-Type": "application/json" };
+      if (upgradeSession?.access_token) {
+        headers.Authorization = `Bearer ${upgradeSession.access_token}`;
       }
-
-      form.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        showErr('');
-        if (!document.getElementById('consent').checked) {
-          showErr('Please tick the agreement box to continue.');
-          return;
-        }
-        var payload = {
-          plan: plan,
-          firstName: document.getElementById('firstName').value.trim(),
-          lastName: document.getElementById('lastName').value.trim(),
-          email: document.getElementById('email').value.trim(),
-          phone: document.getElementById('phone').value.trim(),
-          companyName: document.getElementById('companyName').value.trim(),
-          jobTitle: document.getElementById('jobTitle').value.trim(),
-          industry: document.getElementById('industry').value,
-          companySize: document.getElementById('companySize').value,
-          notes: document.getElementById('notes').value.trim(),
-          consent: true,
-          website: document.querySelector('input[name="website"]').value
-        };
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span>' + cfg.loading;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>' + cfg.loading;
+      try {
+        const res = await fetch("/.netlify/functions/register-and-checkout", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+        });
+        let data = {};
         try {
-          var res = await fetch('/.netlify/functions/register-and-checkout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          var data = {};
-          try { data = await res.json(); } catch (x) {}
-          if (res.ok && data.ok) {
-            if (data.flow === 'mailto' && data.mailto) {
-              window.location.href = data.mailto;
-              return;
-            }
-            if (data.flow === 'stripe' && data.url) {
-              window.location.href = data.url;
-              return;
-            }
+          data = await res.json();
+        } catch (x) {}
+        if (res.ok && data.ok) {
+          if (data.flow === "mailto" && data.mailto) {
+            window.location.href = data.mailto;
+            return;
           }
-          showErr(data.error || 'Something went wrong. Please try again.');
-        } catch (x) {
-          showErr('Network error. Check your connection and try again.');
+          if (data.flow === "stripe" && data.url) {
+            window.location.href = data.url;
+            return;
+          }
         }
-        btn.disabled = false;
-        btn.textContent = cfg.btn;
-      });
-    })();
+        showErr(data.error || "Something went wrong. Please try again.");
+      } catch (x) {
+        showErr("Network error. Check your connection and try again.");
+      }
+      btn.disabled = false;
+      btn.textContent = cfg.btn;
+    });
+    }
   </script>
 </body>
 </html>

@@ -69,6 +69,26 @@ async function saveUserProfile(emailNorm, fields) {
   return inserted.id;
 }
 
+async function verifyUpgradeJwt(event, emailNorm) {
+  const authHeader = event.headers.authorization || event.headers.Authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token) return { ok: false, status: 401, message: "Sign in to upgrade without re-entering details." };
+  const url = process.env.SUPABASE_URL;
+  const anon = process.env.SUPABASE_ANON_KEY;
+  if (!url || !anon) return { ok: false, status: 503, message: "Server misconfigured." };
+  const authClient = createClient(url, anon);
+  const {
+    data: { user },
+    error,
+  } = await authClient.auth.getUser(token);
+  if (error || !user?.email) return { ok: false, status: 401, message: "Invalid or expired session. Sign in again." };
+  const jwtEmail = String(user.email).trim().toLowerCase();
+  if (jwtEmail !== emailNorm) {
+    return { ok: false, status: 403, message: "Email must match your signed-in account." };
+  }
+  return { ok: true };
+}
+
 exports.handler = async function (event) {
   const corsHeaders = (extra = {}) => makeCorsHeaders(event, { "Content-Type": "application/json", ...extra });
 
@@ -83,6 +103,8 @@ exports.handler = async function (event) {
   } catch {
     return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: "Invalid JSON" }) };
   }
+
+  const isUpgrade = body.upgrade === true || body.upgrade === "true";
 
   if (body.website || body.url || body.company_website) {
     return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: "Invalid request" }) };
@@ -138,6 +160,17 @@ exports.handler = async function (event) {
   }
 
   const emailNorm = email.toLowerCase();
+
+  if (isUpgrade) {
+    const v = await verifyUpgradeJwt(event, emailNorm);
+    if (!v.ok) {
+      return {
+        statusCode: v.status,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: v.message }),
+      };
+    }
+  }
 
   try {
     const userId = await saveUserProfile(emailNorm, {
@@ -212,14 +245,17 @@ exports.handler = async function (event) {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const siteUrl = process.env.SITE_URL || "https://act-aware.netlify.app";
 
+    const cancelQs = new URLSearchParams({ plan });
+    if (isUpgrade) cancelQs.set("upgrade", "1");
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "subscription",
       customer_email: emailNorm,
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/register.html?plan=${plan}`,
-      metadata: { plan },
+      cancel_url: `${siteUrl}/register.html?${cancelQs.toString()}`,
+      metadata: { plan, user_id: String(userId), upgrade: isUpgrade ? "1" : "0" },
     });
 
     return {

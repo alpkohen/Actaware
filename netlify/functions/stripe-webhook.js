@@ -1,6 +1,71 @@
 const Stripe = require("stripe");
 const { createClient } = require("@supabase/supabase-js");
+const { Resend } = require("resend");
+const { getResendFrom } = require("./lib/resend-from");
+
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+
+function planTitle(plan) {
+  const p = String(plan || "starter").toLowerCase();
+  if (p === "professional") return "Professional";
+  if (p === "agency") return "Agency";
+  return "Starter";
+}
+
+async function sendSubscriptionConfirmedEmail(to, plan) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    console.warn("stripe-webhook: RESEND_API_KEY missing, skip confirmation email");
+    return;
+  }
+  const site = (process.env.SITE_URL || "https://act-aware.netlify.app").replace(/\/$/, "");
+  const title = planTitle(plan);
+  const text = [
+    "Your ActAware subscription is confirmed.",
+    "",
+    `Plan: ${title}`,
+    "",
+    `View your compliance alerts: ${site}/dashboard.html`,
+    `Manage your account: ${site}/account.html`,
+    "",
+    "You’ll receive your daily UK employer digest around 08:00 UK time.",
+    "",
+    "Information only — not legal advice.",
+    "",
+    "— ActAware",
+  ].join("\n");
+
+  const html = `
+    <p style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.6;color:#374151;">
+      Your <strong>ActAware</strong> subscription is confirmed.
+    </p>
+    <p style="font-family:system-ui,sans-serif;font-size:15px;color:#1e293b;"><strong>Plan:</strong> ${title}</p>
+    <p style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.6;color:#4b5563;">
+      <a href="${site}/dashboard.html">My alerts</a> ·
+      <a href="${site}/account.html">Account</a>
+    </p>
+    <p style="font-family:system-ui,sans-serif;font-size:13px;color:#6b7280;">
+      Daily digest around 08:00 UK time. Manage billing from your Account page when available.
+    </p>
+    <p style="font-family:system-ui,sans-serif;font-size:12px;color:#9ca3af;">Information only — not legal advice.</p>
+  `;
+
+  try {
+    const resend = new Resend(key);
+    const { error } = await resend.emails.send({
+      from: getResendFrom(),
+      to,
+      subject: `ActAware — ${title} subscription confirmed`,
+      text,
+      html,
+    });
+    if (error) console.error("stripe-webhook Resend:", JSON.stringify(error));
+    else console.log("stripe-webhook: confirmation email sent to", to);
+  } catch (e) {
+    console.error("stripe-webhook confirmation email:", e.message);
+  }
+}
+
 exports.handler = async function (event) {
   if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -35,6 +100,7 @@ exports.handler = async function (event) {
         : await supabase.from("subscriptions").insert(subPayload);
       if (sErr) throw sErr;
       console.log("User saved:", email, plan);
+      await sendSubscriptionConfirmedEmail(String(email).trim().toLowerCase(), plan);
     } catch (err) {
       console.error("DB error:", err.message);
       return { statusCode: 500, body: "Database error" };

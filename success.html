@@ -10,8 +10,27 @@
   <style>
     :root { --navy: #0B1829; --gold: #C9922A; --green: #1D9E75; --off-white: #F8F7F4; --border: #E8E5DF; --text-mid: #4A4A4A; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'DM Sans', sans-serif; background: var(--off-white); color: #1a1a1a; display: flex; align-items: center; justify-content: center; min-height: 100vh; -webkit-font-smoothing: antialiased; }
-    .card { background: white; border-radius: 16px; border: 1px solid var(--border); padding: 48px 40px; max-width: 480px; width: 90%; text-align: center; box-shadow: 0 4px 24px rgba(11,24,41,0.06); }
+    body { font-family: 'DM Sans', sans-serif; background: var(--off-white); color: #1a1a1a; min-height: 100vh; display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; }
+    .top-bar {
+      background: var(--navy);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 56px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    .top-bar a.logo-small {
+      font-family: 'Fraunces', serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      text-decoration: none;
+    }
+    .top-bar a.logo-small span { color: var(--gold); }
+    .page-center { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
+    .card { background: white; border-radius: 16px; border: 1px solid var(--border); padding: 48px 40px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(11,24,41,0.06); }
     .logo { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; color: var(--navy); text-decoration: none; display: inline-block; margin-bottom: 24px; }
     .logo span { color: var(--gold); }
     h1 { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 12px; color: var(--navy); }
@@ -25,9 +44,16 @@
     .step-text { font-size: 14px; color: var(--text-mid); line-height: 1.5; }
     .btn { display: inline-block; margin-top: 28px; padding: 12px 28px; background: var(--navy); color: white; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; }
     .btn:hover { opacity: 0.9; }
+    .sub-links { margin-top: 16px; font-size: 14px; }
+    .sub-links a { color: var(--navy); font-weight: 600; }
   </style>
 </head>
 <body>
+  <div class="top-bar">
+    <a href="/" class="logo-small">Act<span>Aware</span></a>
+    <div id="auth-status"></div>
+  </div>
+  <div class="page-center">
   <div class="card">
     <a href="/" class="logo">Act<span>Aware</span></a>
     <h1>You're in.</h1>
@@ -50,6 +76,12 @@
       </div>
     </div>
     <a href="/" class="btn">Back to home</a>
+    <p class="sub-links"><a href="account.html">Your account</a> · <a href="dashboard.html">My alerts</a></p>
   </div>
+  </div>
+  <script type="module">
+    import { initAuthStatus } from "/js/auth-header.js";
+    initAuthStatus();
+  </script>
 </body>
 </html>

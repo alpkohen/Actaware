@@ -1,5 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
+const { Resend } = require("resend");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
+const { getResendFrom } = require("./lib/resend-from");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -24,6 +26,89 @@ function cleanStr(v, max) {
   const t = String(v ?? "").trim();
   if (t.length > max) return t.slice(0, max);
   return t;
+}
+
+async function sendTrialWelcomeEmail({ to, firstName, trialDays, trialEndsAt }) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    console.warn("register-trial: RESEND_API_KEY missing, skipping welcome email");
+    return;
+  }
+  const site = (process.env.SITE_URL || "https://act-aware.netlify.app").replace(/\/$/, "");
+  const name = firstName || "there";
+  const endStr = trialEndsAt
+    ? new Date(trialEndsAt).toLocaleString("en-GB", {
+        weekday: "short",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/London",
+        timeZoneName: "short",
+      })
+    : "";
+
+  const text = [
+    `Hi ${name},`,
+    "",
+    `Welcome to ActAware — your ${trialDays}-day free trial is live.`,
+    "",
+    "What happens next:",
+    "- We’ll email you a daily UK employer compliance digest on the same schedule as paying customers (around 08:00 UK time).",
+    "- Sign in to browse your alert history: " + site + "/dashboard.html (use this same email for the magic link).",
+    "- When you’re ready to continue after the trial, upgrade from your Account page or the pricing section on our site.",
+    "",
+    endStr ? `Your trial access is scheduled until: ${endStr} (London).` : "",
+    "",
+    "This is information only — not legal advice. Always verify against primary sources.",
+    "",
+    "— ActAware",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const html = `
+    <p style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.6;color:#374151;">Hi ${escapeHtml(name)},</p>
+    <p style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.6;color:#374151;">
+      Welcome to <strong>ActAware</strong> — your <strong>${trialDays}-day</strong> free trial is live.
+    </p>
+    <p style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.6;color:#4b5563;">
+      We’ll email you a daily UK employer compliance digest around <strong>08:00 UK time</strong>.
+      View your alert history anytime: <a href="${site}/dashboard.html">My alerts</a> (sign in with this email).
+    </p>
+    ${
+      endStr
+        ? `<p style="font-family:system-ui,sans-serif;font-size:13px;color:#6b7280;">Trial until: ${escapeHtml(endStr)} (London)</p>`
+        : ""
+    }
+    <p style="font-family:system-ui,sans-serif;font-size:12px;color:#9ca3af;margin-top:24px;">
+      Information only — not legal advice.
+    </p>
+  `;
+
+  try {
+    const resend = new Resend(key);
+    const { error } = await resend.emails.send({
+      from: getResendFrom(),
+      to,
+      subject: "You’re in — ActAware free trial started",
+      text,
+      html,
+    });
+    if (error) console.error("register-trial Resend:", JSON.stringify(error));
+    else console.log("register-trial: welcome email sent to", to);
+  } catch (e) {
+    console.error("register-trial welcome email:", e.message);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 exports.handler = async function (event) {
@@ -184,6 +269,13 @@ exports.handler = async function (event) {
       const { error: sErr } = await supabase.from("subscriptions").insert(subPayload);
       if (sErr) throw sErr;
     }
+
+    await sendTrialWelcomeEmail({
+      to: emailNorm,
+      firstName,
+      trialDays: TRIAL_DAYS,
+      trialEndsAt: trialEnds.toISOString(),
+    });
 
     return {
       statusCode: 200,

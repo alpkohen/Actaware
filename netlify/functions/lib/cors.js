@@ -47,7 +47,7 @@ function makeCorsHeaders(event, extra = {}) {
           Vary: "Origin",
         }
       : {}),
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     ...extra,
   };

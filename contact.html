@@ -30,11 +30,11 @@
     }
     header {
       background: var(--navy);
-      padding: 0 40px;
+      padding: 0 24px 0 40px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      height: 64px;
+      gap: 12px;
+      min-height: 64px;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
     .logo {
@@ -44,15 +44,23 @@
       color: var(--white);
       text-decoration: none;
       letter-spacing: -0.3px;
+      flex-shrink: 0;
     }
     .logo span { color: var(--gold); }
-    header nav a {
+    .site-nav {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+    }
+    .site-nav a {
       color: rgba(255,255,255,0.7);
       font-size: 14px;
       text-decoration: none;
-      margin-left: 24px;
     }
-    header nav a:hover { color: var(--white); }
+    .site-nav a:hover { color: var(--white); }
     .wrap {
       max-width: 560px;
       margin: 0 auto;
@@ -154,12 +162,14 @@
 <body>
   <header>
     <a href="/" class="logo">Act<span>Aware</span></a>
-    <nav>
+    <nav class="site-nav">
       <a href="/#how-it-works">How it works</a>
       <a href="/#pricing">Pricing</a>
       <a href="/#trust">Who we are</a>
       <a href="dashboard.html">My alerts</a>
+      <a href="account.html">Account</a>
     </nav>
+    <div id="auth-status"></div>
   </header>
 
   <div class="wrap">
@@ -269,6 +279,10 @@
           });
       });
     })();
+  </script>
+  <script type="module">
+    import { initAuthStatus } from "/js/auth-header.js";
+    initAuthStatus();
   </script>
 </body>
 </html>

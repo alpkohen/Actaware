@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account — ActAware</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #0B1829;
+      --gold: #C9922A;
+      --white: #ffffff;
+      --off-white: #F8F7F4;
+      --border: #E8E5DF;
+      --text: #1C1C1C;
+      --text-mid: #4A4A4A;
+      --text-muted: #8A8A8A;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--off-white);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    header.site-header {
+      background: var(--navy);
+      padding: 0 24px 0 40px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 64px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--white);
+      text-decoration: none;
+      letter-spacing: -0.3px;
+    }
+    .logo span { color: var(--gold); }
+    .site-nav {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 4px 0;
+    }
+    .site-nav a {
+      color: rgba(255,255,255,0.7);
+      font-size: 14px;
+      text-decoration: none;
+      margin-left: 20px;
+    }
+    .site-nav a:hover { color: var(--white); }
+    .wrap { max-width: 640px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(26px, 4vw, 32px);
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 8px;
+    }
+    .sub { color: var(--text-mid); font-size: 15px; margin-bottom: 28px; }
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 28px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 24px rgba(11,24,41,0.06);
+    }
+    .card h2 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--navy);
+      margin-bottom: 16px;
+    }
+    .plan-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .plan-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 100px;
+      background: rgba(201,146,42,0.2);
+      color: #8b6914;
+    }
+    .status { font-size: 14px; color: var(--text-mid); }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--text-mid); margin-bottom: 6px; }
+    .field { margin-bottom: 16px; }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+      font-family: inherit;
+    }
+    input:disabled { background: #f3f4f6; color: var(--text-muted); }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
+    .btn {
+      display: inline-block;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+      text-decoration: none;
+      text-align: center;
+    }
+    .btn-primary { background: var(--gold); color: var(--navy); }
+    .btn-secondary { background: var(--navy); color: var(--white); }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-mid); }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .msg { font-size: 14px; margin-top: 12px; display: none; }
+    .msg.err { color: #b91c1c; display: block; }
+    .msg.ok { color: #047857; display: block; }
+    .gate {
+      max-width: 440px;
+      margin: 60px auto;
+      text-align: center;
+      padding: 24px;
+    }
+    .gate p { color: var(--text-mid); margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" class="logo">Act<span>Aware</span></a>
+    <nav class="site-nav">
+      <a href="/#pricing">Pricing</a>
+      <a href="dashboard.html">My alerts</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <div id="auth-status"></div>
+  </header>
+
+  <div id="gate" class="gate" style="display:none;">
+    <h1>Account</h1>
+    <p>Sign in with the same email you used for your trial or subscription.</p>
+    <a class="btn btn-secondary" href="dashboard.html">Sign in</a>
+  </div>
+
+  <div id="app" class="wrap" style="display:none;">
+    <h1>Your account</h1>
+    <p class="sub">Profile, plan, and billing shortcuts.</p>
+
+    <div class="card">
+      <h2>Plan</h2>
+      <div class="plan-row">
+        <span class="plan-badge" id="plan-label">—</span>
+        <span class="status" id="plan-status"></span>
+      </div>
+      <p class="status" id="trial-line" style="display:none;"></p>
+      <div class="actions" id="plan-actions"></div>
+    </div>
+
+    <div class="card">
+      <h2>Profile</h2>
+      <p class="msg" id="profile-msg"></p>
+      <form id="profile-form">
+        <div class="row2">
+          <div class="field">
+            <label for="firstName">First name</label>
+            <input type="text" id="firstName" name="firstName" maxlength="80" autocomplete="given-name">
+          </div>
+          <div class="field">
+            <label for="lastName">Last name</label>
+            <input type="text" id="lastName" name="lastName" maxlength="80" autocomplete="family-name">
+          </div>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" disabled autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="companyName">Company</label>
+          <input type="text" id="companyName" name="companyName" maxlength="200" autocomplete="organization">
+        </div>
+        <div class="field">
+          <label for="jobTitle">Job title</label>
+          <input type="text" id="jobTitle" name="jobTitle" maxlength="120">
+        </div>
+        <div class="field">
+          <label for="industry">Sector</label>
+          <select id="industry" name="industry">
+            <option value="">Select…</option>
+            <option value="Professional services">Professional services</option>
+            <option value="Technology / IT">Technology / IT</option>
+            <option value="Healthcare & social care">Healthcare & social care</option>
+            <option value="Retail & hospitality">Retail & hospitality</option>
+            <option value="Manufacturing & engineering">Manufacturing & engineering</option>
+            <option value="Finance & insurance">Finance & insurance</option>
+            <option value="Education">Education</option>
+            <option value="Non-profit / charity">Non-profit / charity</option>
+            <option value="Public sector">Public sector</option>
+            <option value="Construction">Construction</option>
+            <option value="Transport & logistics">Transport & logistics</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="companySize">Company size (UK)</label>
+          <select id="companySize" name="companySize">
+            <option value="">Select…</option>
+            <option value="1-9">1–9</option>
+            <option value="10-49">10–49</option>
+            <option value="50-249">50–249</option>
+            <option value="250-999">250–999</option>
+            <option value="1000+">1,000+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="phone">Phone <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
+          <input type="tel" id="phone" name="phone" maxlength="40">
+        </div>
+        <div class="field">
+          <label for="notes">Notes <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
+          <textarea id="notes" name="notes" rows="3" maxlength="500"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" id="save-profile">Save changes</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+    import { initAuthStatus } from "/js/auth-header.js";
+
+    const gate = document.getElementById("gate");
+    const app = document.getElementById("app");
+
+    await initAuthStatus();
+
+    const cfgRes = await fetch("/.netlify/functions/public-config");
+    const cfg = await cfgRes.json().catch(() => ({}));
+    if (!cfgRes.ok || !cfg.supabaseUrl) {
+      gate.style.display = "block";
+      return;
+    }
+
+    const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+      auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },
+    });
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      gate.style.display = "block";
+      return;
+    }
+
+    let profile;
+    const pr = await fetch("/.netlify/functions/account-profile", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!pr.ok) {
+      gate.querySelector("p").textContent =
+        (await pr.json().catch(() => ({}))).error || "We could not load your account. Use the same email as your trial or subscription.";
+      gate.style.display = "block";
+      return;
+    }
+    profile = await pr.json();
+    app.style.display = "block";
+
+    document.getElementById("plan-label").textContent = profile.planLabel || profile.plan;
+    document.getElementById("plan-status").textContent = `Status: ${profile.subscriptionStatus || "—"}`;
+
+    const trialLine = document.getElementById("trial-line");
+    if (profile.plan === "trial" && profile.trialEndsAt) {
+      const d = new Date(profile.trialEndsAt);
+      trialLine.textContent = `Trial ends: ${d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" })} (London)`;
+      trialLine.style.display = "block";
+    }
+
+    const planActions = document.getElementById("plan-actions");
+    const parts = [];
+    const hasPaidStripe =
+      ["starter", "professional", "agency"].includes(profile.plan) && profile.stripeSubscriptionId;
+    if (hasPaidStripe && profile.canBillingPortal) {
+      parts.push(`<button type="button" class="btn btn-secondary" id="btn-billing">Manage billing</button>`);
+    }
+    if (profile.plan === "trial") {
+      parts.push(
+        `<a class="btn btn-primary" href="register.html?plan=starter&upgrade=1">Upgrade to Starter</a>`,
+        `<a class="btn btn-secondary" href="register.html?plan=professional&upgrade=1">Upgrade to Professional</a>`
+      );
+    } else if (profile.plan === "starter") {
+      parts.push(`<a class="btn btn-secondary" href="register.html?plan=professional&upgrade=1">Upgrade to Professional</a>`);
+    }
+    planActions.innerHTML = parts.join(" ");
+    const billingBtn = document.getElementById("btn-billing");
+    if (billingBtn) {
+      billingBtn.addEventListener("click", async () => {
+        const r = await fetch("/.netlify/functions/create-billing-portal", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          body: "{}",
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.url) window.location.href = data.url;
+        else alert(data.error || "Could not open billing portal. Enable Customer Portal in Stripe Dashboard.");
+      });
+    }
+
+    document.getElementById("firstName").value = profile.firstName || "";
+    document.getElementById("lastName").value = profile.lastName || "";
+    document.getElementById("email").value = profile.email || "";
+    document.getElementById("companyName").value = profile.companyName || "";
+    document.getElementById("jobTitle").value = profile.jobTitle || "";
+    document.getElementById("industry").value = profile.industry || "";
+    document.getElementById("companySize").value = profile.companySize || "";
+    document.getElementById("phone").value = profile.phone || "";
+    document.getElementById("notes").value = profile.notes || "";
+
+    const msg = document.getElementById("profile-msg");
+    document.getElementById("profile-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.className = "msg";
+      msg.textContent = "";
+      const body = {
+        firstName: document.getElementById("firstName").value.trim(),
+        lastName: document.getElementById("lastName").value.trim(),
+        companyName: document.getElementById("companyName").value.trim(),
+        jobTitle: document.getElementById("jobTitle").value.trim(),
+        industry: document.getElementById("industry").value,
+        companySize: document.getElementById("companySize").value,
+        phone: document.getElementById("phone").value.trim(),
+        notes: document.getElementById("notes").value.trim(),
+      };
+      const r = await fetch("/.netlify/functions/account-profile", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok) {
+        msg.className = "msg ok";
+        msg.textContent = "Saved.";
+      } else {
+        msg.className = "msg err";
+        msg.textContent = data.error || "Could not save.";
+      }
+    });
+  </script>
+</body>
+</html>

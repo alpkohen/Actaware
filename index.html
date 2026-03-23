@@ -39,41 +39,49 @@
     /* ── HEADER ── */
     header {
       background: var(--navy);
-      padding: 0 40px;
+      padding: 0 24px 0 40px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      height: 64px;
+      gap: 12px;
+      min-height: 64px;
       position: sticky;
       top: 0;
       z-index: 100;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
-    .logo {
+    a.logo {
       font-family: 'Fraunces', serif;
       font-size: 22px;
       font-weight: 600;
       color: var(--white);
       letter-spacing: -0.3px;
+      text-decoration: none;
+      flex-shrink: 0;
     }
-    .logo span { color: var(--gold); }
-    nav a {
+    a.logo span { color: var(--gold); }
+    .site-nav {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+    }
+    .site-nav a {
       color: rgba(255,255,255,0.55);
       font-size: 14px;
       text-decoration: none;
-      margin-left: 28px;
       transition: color 0.2s;
     }
-    nav a:hover { color: var(--white); }
-    nav a.nav-cta {
+    .site-nav a:hover { color: var(--white); }
+    .site-nav a.nav-cta {
       background: var(--gold);
       color: var(--navy);
       padding: 8px 18px;
       border-radius: 6px;
       font-weight: 600;
-      color: var(--navy);
     }
-    nav a.nav-cta:hover { opacity: 0.9; }
+    .site-nav a.nav-cta:hover { opacity: 0.9; }
 
     /* ── HERO ── */
     .hero {
@@ -864,8 +872,7 @@
 
     /* ── RESPONSIVE ── */
     @media (max-width: 900px) {
-      header { padding: 0 24px; }
-      nav .nav-cta { display: none; }
+      header { padding: 0 16px 0 20px; }
       .hero { padding: 72px 24px 56px; }
       .what { grid-template-columns: 1fr; padding: 64px 24px; gap: 40px; }
       .steps { grid-template-columns: 1fr; gap: 2px; }
@@ -887,14 +894,16 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Act<span>Aware</span></div>
-  <nav>
+  <a href="/" class="logo">Act<span>Aware</span></a>
+  <nav class="site-nav">
     <a href="#how-it-works">How it works</a>
     <a href="#pricing">Pricing</a>
     <a href="#trust">Who we are</a>
     <a href="dashboard.html">My alerts</a>
+    <a href="account.html">Account</a>
     <a href="trial.html" class="nav-cta">Start free trial</a>
   </nav>
+  <div id="auth-status"></div>
 </header>
 
 <!-- HERO -->
@@ -1350,6 +1359,7 @@
     <div class="footer-logo">Act<span>Aware</span></div>
     <div class="footer-links">
       <a href="/dashboard.html">My alerts</a>
+      <a href="account.html">Account</a>
       <a href="contact.html">Contact</a>
       <a href="#pricing">Pricing</a>
       <a href="#trust">Who we are</a>
@@ -1368,6 +1378,10 @@
     var isOpen = grid.classList.toggle('open');
     text.textContent = isOpen ? 'Hide sources ↑' : 'Show all sources ↓';
   }
+</script>
+<script type="module">
+  import { initAuthStatus } from "/js/auth-header.js";
+  initAuthStatus();
 </script>
 </body>
 </html>

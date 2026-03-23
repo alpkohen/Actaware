@@ -27,8 +27,23 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px 24px;
+      padding: 72px 24px 40px;
       text-align: center;
+    }
+    .trial-top {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      background: rgba(11, 24, 41, 0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      min-height: 52px;
     }
     .logo {
       font-family: 'Fraunces', serif;
@@ -90,8 +105,10 @@
   </style>
 </head>
 <body>
+  <div class="trial-top"><div id="auth-status"></div></div>
   <a href="/" class="logo">Act<span>Aware</span></a>
   <h1>Your trial is live</h1>
+  <p>We’ve sent a <strong>welcome email</strong> to your inbox with next steps and links to your account and alerts.</p>
   <p>You’ll get UK employer compliance briefings when our morning digest runs (<strong>08:00 UK time</strong>, same schedule as paying customers) — all 14 official sources.</p>
   <p id="until-line" class="until" style="display:none"></p>
   <p>When you’re ready, pick a plan to continue after the trial.</p>
@@ -125,6 +142,10 @@
         } catch (e) {}
       }
     })();
+  </script>
+  <script type="module">
+    import { initAuthStatus } from "/js/auth-header.js";
+    initAuthStatus();
   </script>
 </body>
 </html>
