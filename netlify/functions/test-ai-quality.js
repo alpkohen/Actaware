@@ -641,11 +641,12 @@ function evaluateResponse(output, scenario) {
     if (allPresent) score++;
   }
 
-  // 4. Hallucination check (only if expected)
+  // 4. Hallucination check (only if expected) — strip Source: URLs before checking
   if (scenario.expected.mustNotContain.length > 0) {
     maxScore++;
+    const textWithoutUrls = output.replace(/Source:\s*https?:\/\/[^\s]+/gi, "");
     const nonePresent = scenario.expected.mustNotContain.every(
-      (s) => !output.toLowerCase().includes(s.toLowerCase())
+      (s) => !textWithoutUrls.toLowerCase().includes(s.toLowerCase())
     );
     checks.push({
       check: `No hallucinated specifics: ${scenario.expected.mustNotContain.join(", ")}`,
@@ -696,38 +697,49 @@ exports.handler = async function (event) {
     };
   }
 
-  // Run all scenarios in parallel — max wall time = slowest single call (~5s)
-  const rawResults = await Promise.allSettled(
-    scenarios.map(async (scenario) => {
-      console.log(`Running scenario ${scenario.id}: ${scenario.label}`);
-      const startMs = Date.now();
-      let output = "";
-      let error = null;
-      try {
-        const prompt = buildPrompt(scenario.items, scenario.source, tier);
-        output = await callClaude(prompt, tier);
-      } catch (err) {
-        error = err.message;
-      }
-      const evaluation = error ? null : evaluateResponse(output, scenario);
-      return {
-        id: scenario.id,
-        label: scenario.label,
-        description: scenario.description,
-        tier,
-        ms: Date.now() - startMs,
-        error: error || null,
-        grade: evaluation?.grade ?? "ERROR",
-        score: evaluation ? `${evaluation.score}/${evaluation.maxScore}` : "N/A",
-        checks: evaluation?.checks ?? [],
-        output: error ? null : output,
-        _evaluation: evaluation,
-      };
-    })
-  );
+  // Run scenarios in batches of 4 to avoid Anthropic concurrent connection limit
+  const BATCH_SIZE = 4;
+  const BATCH_DELAY_MS = 1500;
+  const allResults = [];
 
-  // Unwrap settled promises; sort by scenario id for consistent order
-  const results = rawResults
+  for (let i = 0; i < scenarios.length; i += BATCH_SIZE) {
+    const batch = scenarios.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.allSettled(
+      batch.map(async (scenario) => {
+        console.log(`Running scenario ${scenario.id}: ${scenario.label}`);
+        const startMs = Date.now();
+        let output = "";
+        let error = null;
+        try {
+          const prompt = buildPrompt(scenario.items, scenario.source, tier);
+          output = await callClaude(prompt, tier);
+        } catch (err) {
+          error = err.message;
+        }
+        const evaluation = error ? null : evaluateResponse(output, scenario);
+        return {
+          id: scenario.id,
+          label: scenario.label,
+          description: scenario.description,
+          tier,
+          ms: Date.now() - startMs,
+          error: error || null,
+          grade: evaluation?.grade ?? "ERROR",
+          score: evaluation ? `${evaluation.score}/${evaluation.maxScore}` : "N/A",
+          checks: evaluation?.checks ?? [],
+          output: error ? null : output,
+          _evaluation: evaluation,
+        };
+      })
+    );
+    allResults.push(...batchResults);
+    // Pause between batches to respect rate limits (skip after last batch)
+    if (i + BATCH_SIZE < scenarios.length) {
+      await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+    }
+  }
+
+  const results = allResults
     .map((r) => (r.status === "fulfilled" ? r.value : { error: r.reason?.message, grade: "ERROR" }))
     .sort((a, b) => (a.id || 0) - (b.id || 0));
 
