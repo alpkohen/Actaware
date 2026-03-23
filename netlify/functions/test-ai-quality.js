@@ -548,7 +548,7 @@ function buildPrompt(items, sourceName, tier) {
 `
       : "";
 
-  return `You are a UK employment law compliance expert writing employer alert emails for UK employers.
+  return `You are a UK employer compliance expert (employment law, payroll/tax, health & safety, data protection, pensions, equality, and right-to-work / immigration duties) writing alert emails for UK employers.
 
 Source: ${sourceName}
 ---

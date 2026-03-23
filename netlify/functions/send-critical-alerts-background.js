@@ -6,7 +6,7 @@
  */
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
-const { RSS_FEEDS, fetchRSS, parseRSSItems } = require("./lib/employer-feeds");
+const { RSS_FEEDS, fetchRSS, parseRSSItems, selectItemsInWindow } = require("./lib/employer-feeds");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -34,7 +34,7 @@ async function getProAgencyUsers() {
 }
 
 async function summariseCriticalOnly(items, sourceName) {
-  const prompt = `You are a UK employment law compliance expert. Source: ${sourceName}
+  const prompt = `You are a UK employer compliance expert (employment law, payroll/tax, health & safety, data protection, pensions, equality, right-to-work). Source: ${sourceName}
 
 Items (last ~24 hours):
 ---
@@ -252,11 +252,7 @@ exports.handler = async function () {
     try {
       const xml = await fetchRSS(feed.url);
       const allItems = parseRSSItems(xml, filterSpec);
-      const items = allItems.filter((item) => {
-        if (!item.published) return false;
-        const d = new Date(item.published);
-        return !isNaN(d) && d.getTime() >= cutoff;
-      });
+      const items = selectItemsInWindow(allItems, cutoff, feed);
       if (items.length === 0) continue;
 
       const content = await summariseCriticalOnly(items, feed.name);

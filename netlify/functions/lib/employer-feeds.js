@@ -42,9 +42,10 @@ const RSS_FEEDS = [
     priority: "medium",
   },
   {
-    name: "GOV.UK — Data Protection (ICO via GOV.UK)",
-    url: "https://www.gov.uk/search/all.atom?keywords=data+protection+employer&organisations%5B%5D=information-commissioner-s-office",
+    name: "GOV.UK — Information Commissioner's Office",
+    url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=information-commissioner-s-office",
     priority: "medium",
+    maxItemsPerDigest: 18,
   },
   {
     name: "Legislation.gov.uk — New Statutory Instruments (ERA 2025)",
@@ -76,9 +77,10 @@ const RSS_FEEDS = [
     ],
   },
   {
-    name: "Employment Tribunal — ERA 2025 Case Decisions",
-    url: "https://www.gov.uk/employment-tribunal-decisions.atom?keywords=Employment+Rights+Act+2025",
+    name: "Employment Tribunal — Recent Decisions",
+    url: "https://www.gov.uk/employment-tribunal-decisions.atom",
     priority: "high",
+    maxItemsPerDigest: 15,
   },
   {
     name: "Pensions Regulator — Employer Auto-Enrolment",
@@ -95,7 +97,31 @@ const RSS_FEEDS = [
     url: "https://press.hse.gov.uk/feed/",
     priority: "medium",
   },
+  {
+    name: "GOV.UK — Equality and Human Rights Commission",
+    url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=equality-and-human-rights-commission",
+    priority: "high",
+    maxItemsPerDigest: 18,
+  },
+  {
+    name: "GOV.UK — Home Office (Right to Work)",
+    url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=home-office&keywords=right+to+work+employer",
+    priority: "high",
+  },
+  {
+    name: "GOV.UK — Home Office (Employer Immigration)",
+    url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=home-office&keywords=employer+immigration",
+    priority: "high",
+  },
+  {
+    name: "GOV.UK — DWP (Employer)",
+    url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=department-for-work-pensions&keywords=employer",
+    priority: "medium",
+  },
 ];
+
+/** Matches marketing copy on the site; update index.html if you change RSS_FEEDS length. */
+const MONITORED_FEED_COUNT = RSS_FEEDS.length;
 
 function fetchRSS(urlString) {
   return new Promise((resolve, reject) => {
@@ -186,8 +212,27 @@ function parseRSSItems(xml, filterSpec = null) {
   return items;
 }
 
+/**
+ * Items published on/after cutoff, newest first; optional per-feed cap (tribunal / high-volume feeds).
+ */
+function selectItemsInWindow(allItems, cutoffMs, feed) {
+  let items = allItems.filter((item) => {
+    if (!item.published) return false;
+    const d = new Date(item.published);
+    return !isNaN(d) && d.getTime() >= cutoffMs;
+  });
+  items.sort((a, b) => new Date(b.published) - new Date(a.published));
+  const cap = feed?.maxItemsPerDigest;
+  if (typeof cap === "number" && cap > 0 && items.length > cap) {
+    items = items.slice(0, cap);
+  }
+  return items;
+}
+
 module.exports = {
   RSS_FEEDS,
+  MONITORED_FEED_COUNT,
   fetchRSS,
   parseRSSItems,
+  selectItemsInWindow,
 };

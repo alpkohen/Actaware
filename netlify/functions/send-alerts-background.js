@@ -1,6 +1,12 @@
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
-const { RSS_FEEDS, fetchRSS, parseRSSItems } = require("./lib/employer-feeds");
+const {
+  RSS_FEEDS,
+  MONITORED_FEED_COUNT,
+  fetchRSS,
+  parseRSSItems,
+  selectItemsInWindow,
+} = require("./lib/employer-feeds");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -23,7 +29,7 @@ async function summariseWithClaude(items, sourceName, digestTier = "standard") {
 `
       : "";
 
-  const prompt = `You are a UK employment law compliance expert writing employer alert emails for UK employers.
+  const prompt = `You are a UK employer compliance expert (employment law, payroll/tax, health & safety, data protection, pensions, equality, and right-to-work / immigration duties) writing alert emails for UK employers.
 
 Source: ${sourceName}
 ---
@@ -137,11 +143,7 @@ async function buildDigestSections(runId, cutoff, digestTier, forceQuietDayPrevi
     try {
       const xml = await fetchRSS(feed.url);
       const allItems = parseRSSItems(xml, filterSpec);
-      const items = allItems.filter((item) => {
-        if (!item.published) return false;
-        const d = new Date(item.published);
-        return !isNaN(d) && d.getTime() >= cutoff;
-      });
+      const items = selectItemsInWindow(allItems, cutoff, feed);
 
       outcome.itemsInWindow = items.length;
       console.log(`[${digestTier}] Feed "${feed.name}": ${items.length} items (36h window)`);
@@ -500,7 +502,7 @@ function buildEmailHTML(companyName, alertSections, dateLabel) {
           Hi ${companyName ? `<strong>${companyName}</strong>` : "there"},
         </p>
         <p style="margin:12px 0 0;font-size:15px;color:#374151;line-height:1.6;">
-          Here are today's UK employment law updates from our monitored official sources:
+          Here are today's UK employer compliance updates from our monitored official sources:
         </p>
       </td></tr>
       <tr><td style="background:#ffffff;padding:16px 32px;">
@@ -559,7 +561,7 @@ function buildQuietDayEmailHTML(companyName, dateLabel) {
           Hi ${companyName ? `<strong>${companyName}</strong>` : "there"},
         </p>
         <p style="margin:16px 0 0;font-size:15px;color:#374151;line-height:1.65;">
-          We scanned our <strong>14 monitored official UK sources</strong> for items published in the last ~36 hours (covering “yesterday” across time zones). <strong>Nothing new surfaced that required an employer-facing compliance alert today.</strong>
+          We scanned our <strong>${MONITORED_FEED_COUNT} monitored official UK sources</strong> for items published in the last ~36 hours (covering “yesterday” across time zones). <strong>Nothing new surfaced that required an employer-facing compliance alert today.</strong>
         </p>
         <p style="margin:16px 0 0;font-size:14px;color:#6b7280;line-height:1.65;">
           That does not mean nothing happened in the wider world — only that, within the official feeds we track, there was no material employer-relevant change worth a full briefing. We’ll be back tomorrow at the usual time if anything moves.
