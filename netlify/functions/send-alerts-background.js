@@ -216,19 +216,127 @@ async function logFeedError(runId, feed, err) {
     error_message: err.message,
   });
 
-  // Alert email — only if ALERT_EMAIL env var is set, so it's opt-in.
-  if (process.env.ALERT_EMAIL) {
+  if (!process.env.ALERT_EMAIL) return;
+
+  const isCritical = feed.priority === "critical";
+
+  if (isCritical) {
+    // Critical feeds: immediate email — every failure
     await resend.emails.send({
       from: "ActAware System <onboarding@resend.dev>",
       to: process.env.ALERT_EMAIL,
-      subject: `[ActAware] Feed error: ${feed.name}`,
-      html: `<p>Feed <strong>${feed.name}</strong> failed during run <code>${runId}</code>.</p>
-             <p><strong>Error:</strong> ${err.message}</p>
-             <p><strong>URL:</strong> <a href="${feed.url}">${feed.url}</a></p>`,
-    }).catch((mailErr) => {
-      console.error(`Alert email failed: ${mailErr.message}`);
-    });
+      subject: `🚨 [ActAware] CRITICAL feed error: ${feed.name}`,
+      html: `<p style="font-family:sans-serif;">
+               <strong style="color:#dc2626;">CRITICAL feed failure</strong> — this feed is priority:critical and affects all user alerts.<br><br>
+               <strong>Feed:</strong> ${feed.name}<br>
+               <strong>Error:</strong> ${err.message}<br>
+               <strong>URL:</strong> <a href="${feed.url}">${feed.url}</a><br>
+               <strong>Run:</strong> <code>${runId}</code>
+             </p>`,
+    }).catch((mailErr) => console.error(`Alert email failed: ${mailErr.message}`));
+  } else {
+    // Non-critical: only alert after 3+ errors in the last 3 days
+    const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from("feed_fetch_errors")
+      .select("id")
+      .eq("feed_name", feed.name)
+      .gte("occurred_at", since);
+    const errorCount = (data || []).length;
+
+    if (errorCount >= 3) {
+      await resend.emails.send({
+        from: "ActAware System <onboarding@resend.dev>",
+        to: process.env.ALERT_EMAIL,
+        subject: `⚠️ [ActAware] Feed failing ${errorCount}x in 3 days: ${feed.name}`,
+        html: `<p style="font-family:sans-serif;">
+                 Feed <strong>${feed.name}</strong> has failed <strong>${errorCount} times in the last 3 days</strong>.<br><br>
+                 <strong>Latest error:</strong> ${err.message}<br>
+                 <strong>URL:</strong> <a href="${feed.url}">${feed.url}</a><br>
+                 <strong>Run:</strong> <code>${runId}</code>
+               </p>`,
+      }).catch((mailErr) => console.error(`Alert email failed: ${mailErr.message}`));
+    }
   }
+}
+
+// ── Daily feed health report ──────────────────────────────────────────────────
+async function sendDailyHealthReport(feedOutcomes, runId, dateLabel) {
+  if (!process.env.ALERT_EMAIL) return;
+  if (!feedOutcomes || feedOutcomes.length === 0) return;
+
+  // Deduplicate by feed name (standard + professional tiers run same feeds);
+  // keep the "worst" status for each feed.
+  const STATUS_RANK = { fetch_or_parse_error: 3, claude_error: 2 };
+  const rank = (s) => STATUS_RANK[s] || 1;
+  const byFeed = new Map();
+  for (const o of feedOutcomes) {
+    if (!o.feed || o.feed.startsWith("(")) continue; // skip force-preview placeholder
+    const prev = byFeed.get(o.feed);
+    if (!prev || rank(o.status) > rank(prev.status)) byFeed.set(o.feed, o);
+  }
+  const outcomes = [...byFeed.values()];
+  if (outcomes.length === 0) return;
+
+  const brokenFetch = outcomes.filter((o) => o.status === "fetch_or_parse_error");
+  const brokenClaude = outcomes.filter((o) => o.status === "claude_error");
+  const totalFeeds = RSS_FEEDS.length;
+  const fetchOk = totalFeeds - brokenFetch.length;
+  const allOk = brokenFetch.length === 0 && brokenClaude.length === 0;
+
+  const rowStyle = "padding:9px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;";
+  const feedRows = outcomes.map((o) => {
+    const isFetchErr = o.status === "fetch_or_parse_error";
+    const isClaudeErr = o.status === "claude_error";
+    const statusCell = isFetchErr
+      ? `<span style="color:#dc2626;font-weight:700;">✗ Fetch failed</span>${o.detail ? `<br><span style="color:#9ca3af;font-size:11px;">${o.detail}</span>` : ""}`
+      : isClaudeErr
+      ? `<span style="color:#d97706;font-weight:700;">⚠ AI error</span>`
+      : `<span style="color:#16a34a;">✓ OK</span>`;
+    return `<tr style="${isFetchErr ? "background:#fef2f2;" : ""}">
+      <td style="${rowStyle}color:#111827;">${o.feed}</td>
+      <td style="${rowStyle}text-align:right;">${statusCell}</td>
+    </tr>`;
+  }).join("");
+
+  const bannerBg = allOk ? "#f0fdf4" : "#fef9c3";
+  const bannerColor = allOk ? "#16a34a" : "#92400e";
+  const statusIcon = allOk ? "✅" : "⚠️";
+  const subjectStatus = allOk
+    ? `${fetchOk}/${totalFeeds} feeds OK`
+    : `${brokenFetch.length} broken — ${fetchOk}/${totalFeeds} OK`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:24px 16px;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;">
+  <tr><td style="background:#0f172a;padding:20px 24px;">
+    <div style="font-size:16px;font-weight:700;color:#fff;">ActAware — Feed Health Report</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">${dateLabel} &middot; <code style="font-size:11px;">${runId}</code></div>
+  </td></tr>
+  <tr><td style="padding:16px 24px;background:${bannerBg};border-bottom:1px solid #e5e7eb;">
+    <div style="font-size:22px;font-weight:700;color:${bannerColor};">${statusIcon} ${fetchOk} / ${totalFeeds} feeds healthy</div>
+    ${brokenFetch.length > 0 ? `<div style="font-size:13px;color:#92400e;margin-top:6px;">${brokenFetch.length} feed(s) failed to fetch — users may have missed updates from these sources.</div>` : ""}
+    ${brokenClaude.length > 0 ? `<div style="font-size:13px;color:#b45309;margin-top:4px;">${brokenClaude.length} feed(s) fetched OK but AI summarisation failed.</div>` : ""}
+  </td></tr>
+  <tr><td style="padding:0 24px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
+      <tr style="background:#f8fafc;">
+        <th style="padding:9px 14px;font-size:11px;text-align:left;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Feed</th>
+        <th style="padding:9px 14px;font-size:11px;text-align:right;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Status</th>
+      </tr>
+      ${feedRows}
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+
+  await resend.emails.send({
+    from: "ActAware System <onboarding@resend.dev>",
+    to: process.env.ALERT_EMAIL,
+    subject: `[ActAware] ${statusIcon} Feed Health: ${subjectStatus} — ${dateLabel}`,
+    html,
+  }).catch((mailErr) => console.error(`Health report email failed: ${mailErr.message}`));
 }
 
 /** Pull **Field name:** value until next **Heading or Source: */
@@ -622,6 +730,10 @@ exports.handler = async function () {
 
   const globalQuiet =
     sectionsStandard.length === 0 && sectionsProfessional.length === 0;
+
+  if (!forceQuietDayPreview) {
+    await sendDailyHealthReport(feedOutcomes, runId, dateLabel);
+  }
 
   return {
     statusCode: 202,
