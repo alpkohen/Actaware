@@ -592,6 +592,7 @@ h1{font-size:22px;margin:0 0 8px;} .sub{color:#6b7280;font-size:14px;margin-bott
     el("modal-review-item-title").textContent = title || "";
     el("modal-review-note").value = "";
     el("modal-review").hidden = false;
+    requestAnimationFrame(() => el("modal-review-note")?.focus());
   }
 
   function closeReviewModal() {
@@ -903,6 +904,24 @@ h1{font-size:22px;margin:0 0 8px;} .sub{color:#6b7280;font-size:14px;margin-bott
     }
 
     el("btn-search").addEventListener("click", () => refreshAlertsOnly());
+
+    let filterDebounceT = null;
+    function scheduleFilterRefresh() {
+      clearTimeout(filterDebounceT);
+      filterDebounceT = setTimeout(() => refreshAlertsOnly(), 400);
+    }
+    el("filter-importance")?.addEventListener("change", () => refreshAlertsOnly());
+    el("filter-source")?.addEventListener("input", scheduleFilterRefresh);
+    el("filter-from")?.addEventListener("change", () => refreshAlertsOnly());
+    el("filter-to")?.addEventListener("change", () => refreshAlertsOnly());
+
+    document.addEventListener("keydown", (ev) => {
+      const m = el("modal-review");
+      if (ev.key === "Escape" && m && !m.hidden) {
+        ev.preventDefault();
+        closeReviewModal();
+      }
+    });
 
     el("btn-clear-filters")?.addEventListener("click", () => {
       el("filter-importance").value = "all";

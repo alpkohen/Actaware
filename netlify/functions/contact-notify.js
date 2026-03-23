@@ -7,6 +7,8 @@
  */
 const Resend = require("resend").Resend;
 const { makeCorsHeaders, preflight } = require("./lib/cors");
+const { getResendFrom } = require("./lib/resend-from");
+const { getSiteUrl } = require("./lib/site-url");
 
 const DEFAULT_NOTIFY = "alpkohen67@gmail.com";
 
@@ -33,6 +35,8 @@ function isAllowedRequest(event) {
       const host = new URL(u).hostname.toLowerCase();
       if (host && blob.includes(host)) return true;
     }
+    const prodHost = new URL(getSiteUrl()).hostname.toLowerCase();
+    if (prodHost && blob.includes(prodHost)) return true;
   } catch (_) {}
   return false;
 }
@@ -83,10 +87,7 @@ exports.handler = async function (event) {
   }
 
   const to = (process.env.CONTACT_FORM_NOTIFY_EMAIL || DEFAULT_NOTIFY).trim();
-  const from =
-    process.env.CONTACT_FORM_FROM ||
-    process.env.RESEND_FROM ||
-    "ActAware <onboarding@resend.dev>";
+  const from = getResendFrom();
 
   const text = [
     "New message from actaware.co.uk contact form (contact-notify)",

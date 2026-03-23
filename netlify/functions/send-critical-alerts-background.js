@@ -6,6 +6,8 @@
  */
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
+const { getResendFrom } = require("./lib/resend-from");
+const { escapeHtml, safeHttpUrl, textToEmailHtml } = require("./lib/html-escape");
 const { RSS_FEEDS, fetchRSS, parseRSSItems, selectItemsInWindow } = require("./lib/employer-feeds");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -149,54 +151,62 @@ function parseAlertsFromText(text, sourceName) {
   return alertBlocks;
 }
 
-function importanceBadgeHTML(importance) {
-  return `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;text-transform:uppercase;">${importance}</span>`;
+function importanceBadgeHTML() {
+  return `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;text-transform:uppercase;">CRITICAL</span>`;
 }
 
 function buildAlertCardHTML(alert) {
   const actionsHTML =
     alert.actions.length > 0
-      ? `<ul style="margin:6px 0 0 18px;color:#4b5563;line-height:1.8;">${alert.actions.map((a) => `<li style="font-size:14px;">${a}</li>`).join("")}</ul>`
+      ? `<ul style="margin:6px 0 0 18px;color:#4b5563;line-height:1.8;">${alert.actions.map((a) => `<li style="font-size:14px;">${escapeHtml(a)}</li>`).join("")}</ul>`
       : "";
+  const cc = alert.crossChecks ? textToEmailHtml(alert.crossChecks) : "";
   const proBits = [
     alert.severityRationale &&
-      `<p style="margin:10px 0 6px;font-size:13px;color:#374151;"><strong>Severity rationale:</strong> ${alert.severityRationale}</p>`,
+      `<p style="margin:10px 0 6px;font-size:13px;color:#374151;"><strong>Severity rationale:</strong> ${escapeHtml(alert.severityRationale)}</p>`,
     alert.governanceOwnership &&
-      `<p style="margin:0 0 6px;font-size:13px;"><strong>Governance & ownership:</strong> ${alert.governanceOwnership}</p>`,
+      `<p style="margin:0 0 6px;font-size:13px;"><strong>Governance & ownership:</strong> ${escapeHtml(alert.governanceOwnership)}</p>`,
     alert.suggestedTimeline &&
-      `<p style="margin:0 0 6px;font-size:13px;"><strong>Suggested timeline:</strong> ${alert.suggestedTimeline}</p>`,
+      `<p style="margin:0 0 6px;font-size:13px;"><strong>Suggested timeline:</strong> ${escapeHtml(alert.suggestedTimeline)}</p>`,
     alert.crossChecks &&
-      `<p style="margin:0 0 6px;font-size:13px;"><strong>Cross-checks:</strong><br>${alert.crossChecks.replace(/\n/g, "<br>")}</p>`,
+      `<p style="margin:0 0 6px;font-size:13px;"><strong>Cross-checks:</strong><br>${cc}</p>`,
   ].filter(Boolean);
   const proHTML =
     proBits.length > 0
       ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;">${proBits.join("")}</div>`
       : "";
+  const href = safeHttpUrl(alert.sourceUrl);
+  const sourceLink = href
+    ? `<p style="margin:8px 0 0;font-size:12px;"><a href="${escapeHtml(href)}" style="color:#2563eb;">${escapeHtml(href)}</a></p>`
+    : "";
   return `
     <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:16px 18px;margin-bottom:12px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#c2410c;margin-bottom:6px;">${alert.sourceName}</div>
-      ${importanceBadgeHTML(alert.importance)}
-      ${alert.published ? `<span style="font-size:11px;color:#9ca3af;margin-left:8px;">${alert.published}</span>` : ""}
-      <p style="margin:8px 0 4px;font-size:15px;font-weight:700;color:#111827;">${alert.title}</p>
-      ${alert.whatChanged ? `<p style="margin:0 0 8px;font-size:14px;color:#4b5563;"><strong>What changed:</strong> ${alert.whatChanged}</p>` : ""}
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#c2410c;margin-bottom:6px;">${escapeHtml(alert.sourceName)}</div>
+      ${importanceBadgeHTML()}
+      ${alert.published ? `<span style="font-size:11px;color:#9ca3af;margin-left:8px;">${escapeHtml(alert.published)}</span>` : ""}
+      <p style="margin:8px 0 4px;font-size:15px;font-weight:700;color:#111827;">${escapeHtml(alert.title)}</p>
+      ${alert.whatChanged ? `<p style="margin:0 0 8px;font-size:14px;color:#4b5563;"><strong>What changed:</strong> ${escapeHtml(alert.whatChanged)}</p>` : ""}
       ${alert.actions.length ? `<p style="margin:0;font-size:14px;font-weight:600;">What employers must do:</p>${actionsHTML}` : ""}
-      ${alert.risk ? `<p style="margin:8px 0;font-size:14px;"><strong>Risk if ignored:</strong> ${alert.risk}</p>` : ""}
+      ${alert.risk ? `<p style="margin:8px 0;font-size:14px;"><strong>Risk if ignored:</strong> ${escapeHtml(alert.risk)}</p>` : ""}
       ${proHTML}
-      ${alert.sourceUrl ? `<p style="margin:8px 0 0;font-size:12px;"><a href="${alert.sourceUrl}" style="color:#2563eb;">${alert.sourceUrl}</a></p>` : ""}
+      ${sourceLink}
     </div>`;
 }
 
 function buildCriticalEmailHTML(companyName, cards, shortDate) {
   const inner = cards.map(buildAlertCardHTML).join("");
+  const greeting = companyName
+    ? `Hi <strong>${escapeHtml(companyName)}</strong>`
+    : "Hi there";
   return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f3f4f6;font-family:system-ui,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;"><tr><td align="center">
 <table width="600" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
 <tr><td style="background:#7f1d1d;padding:20px 24px;">
 <div style="font-size:18px;font-weight:700;color:#fff;">ActAware — Critical alert</div>
-<div style="font-size:12px;color:#fecaca;margin-top:4px;">Professional / Agency · ${shortDate}</div>
+<div style="font-size:12px;color:#fecaca;margin-top:4px;">Professional / Agency · ${escapeHtml(shortDate)}</div>
 </td></tr>
 <tr><td style="padding:24px;">
-<p style="margin:0 0 16px;font-size:15px;color:#374151;">Hi ${companyName ? `<strong>${companyName}</strong>` : "there"},</p>
+<p style="margin:0 0 16px;font-size:15px;color:#374151;">${greeting},</p>
 <p style="margin:0 0 16px;font-size:14px;color:#4b5563;line-height:1.55;">The following was flagged as <strong>CRITICAL</strong> from our official UK sources in the last ~24 hours. This is separate from your morning digest.</p>
 ${inner}
 <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">Not legal advice. Verify with primary sources and your solicitor.</p>
@@ -318,7 +328,7 @@ exports.handler = async function () {
 
       const html = buildCriticalEmailHTML(sub.users.company_name, toSend, shortDate);
       await resend.emails.send({
-        from: "ActAware <onboarding@resend.dev>",
+        from: getResendFrom(),
         to: sub.users.email,
         subject: `${mailTestPrefix}ActAware CRITICAL — UK employer compliance`,
         html,

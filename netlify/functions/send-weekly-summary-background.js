@@ -5,6 +5,8 @@
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
 const { getResendFrom } = require("./lib/resend-from");
+const { getSiteUrl } = require("./lib/site-url");
+const { escapeHtml } = require("./lib/html-escape");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -75,14 +77,6 @@ Rules:
     throw new Error("Anthropic empty weekly summary");
   }
   return text.trim();
-}
-
-function escHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 function textToEmailHtml(text) {
@@ -199,10 +193,10 @@ exports.handler = async function () {
 <div style="font-size:13px;color:#94a3b8;margin-top:4px;">Weekly compliance recap · Professional</div>
 </td></tr>
 <tr><td style="background:#fff;padding:24px 28px;">
-<p style="margin:0 0 8px;font-size:15px;color:#374151;">Hi ${company ? `<strong>${escHtml(company)}</strong>` : "there"},</p>
-<p style="margin:0 0 16px;font-size:13px;color:#6b7280;">Week of ${rangeLabel} (UK)</p>
+<p style="margin:0 0 8px;font-size:15px;color:#374151;">Hi ${company ? `<strong>${escapeHtml(company)}</strong>` : "there"},</p>
+<p style="margin:0 0 16px;font-size:13px;color:#6b7280;">Week of ${escapeHtml(rangeLabel)} (UK)</p>
 ${textToEmailHtml(summaryText)}
-<p style="margin:20px 0 0;font-size:13px;color:#6b7280;"><a href="${process.env.SITE_URL || "https://actaware.co.uk"}/dashboard.html" style="color:#6366f1;">Open My alerts</a> for your full archive and filters.</p>
+<p style="margin:20px 0 0;font-size:13px;color:#6b7280;"><a href="${escapeHtml(`${getSiteUrl()}/dashboard.html`)}" style="color:#6366f1;">Open My alerts</a> for your full archive and filters.</p>
 </td></tr>
 <tr><td style="background:#f8fafc;padding:16px 28px;border-radius:0 0 12px 12px;border-top:1px solid #e2e8f0;font-size:11px;color:#9ca3af;">Information only — not legal advice. Verify with official sources.</td></tr>
 </table>

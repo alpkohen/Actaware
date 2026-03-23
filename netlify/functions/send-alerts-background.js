@@ -1,6 +1,8 @@
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
 const { getResendFrom } = require("./lib/resend-from");
+const { getSiteUrl } = require("./lib/site-url");
+const { escapeHtml, safeHttpUrl, textToEmailHtml } = require("./lib/html-escape");
 const {
   RSS_FEEDS,
   MONITORED_FEED_COUNT,
@@ -292,16 +294,17 @@ async function logFeedError(runId, feed, err) {
 
   if (isCritical) {
     // Critical feeds: immediate email — every failure
+    const feedHref = safeHttpUrl(feed.url) || "#";
     await resend.emails.send({
-      from: "ActAware System <onboarding@resend.dev>",
+      from: getResendFrom(),
       to: process.env.ALERT_EMAIL,
       subject: `🚨 [ActAware] CRITICAL feed error: ${feed.name}`,
       html: `<p style="font-family:sans-serif;">
                <strong style="color:#dc2626;">CRITICAL feed failure</strong> — this feed is priority:critical and affects all user alerts.<br><br>
-               <strong>Feed:</strong> ${feed.name}<br>
-               <strong>Error:</strong> ${err.message}<br>
-               <strong>URL:</strong> <a href="${feed.url}">${feed.url}</a><br>
-               <strong>Run:</strong> <code>${runId}</code>
+               <strong>Feed:</strong> ${escapeHtml(feed.name)}<br>
+               <strong>Error:</strong> ${escapeHtml(err.message)}<br>
+               <strong>URL:</strong> <a href="${escapeHtml(feedHref)}">${escapeHtml(feed.url)}</a><br>
+               <strong>Run:</strong> <code>${escapeHtml(runId)}</code>
              </p>`,
     }).catch((mailErr) => console.error(`Alert email failed: ${mailErr.message}`));
   } else {
@@ -315,15 +318,16 @@ async function logFeedError(runId, feed, err) {
     const errorCount = (data || []).length;
 
     if (errorCount >= 3) {
+      const feedHref2 = safeHttpUrl(feed.url) || "#";
       await resend.emails.send({
-        from: "ActAware System <onboarding@resend.dev>",
+        from: getResendFrom(),
         to: process.env.ALERT_EMAIL,
         subject: `⚠️ [ActAware] Feed failing ${errorCount}x in 3 days: ${feed.name}`,
         html: `<p style="font-family:sans-serif;">
-                 Feed <strong>${feed.name}</strong> has failed <strong>${errorCount} times in the last 3 days</strong>.<br><br>
-                 <strong>Latest error:</strong> ${err.message}<br>
-                 <strong>URL:</strong> <a href="${feed.url}">${feed.url}</a><br>
-                 <strong>Run:</strong> <code>${runId}</code>
+                 Feed <strong>${escapeHtml(feed.name)}</strong> has failed <strong>${errorCount} times in the last 3 days</strong>.<br><br>
+                 <strong>Latest error:</strong> ${escapeHtml(err.message)}<br>
+                 <strong>URL:</strong> <a href="${escapeHtml(feedHref2)}">${escapeHtml(feed.url)}</a><br>
+                 <strong>Run:</strong> <code>${escapeHtml(runId)}</code>
                </p>`,
       }).catch((mailErr) => console.error(`Alert email failed: ${mailErr.message}`));
     }
@@ -359,12 +363,12 @@ async function sendDailyHealthReport(feedOutcomes, runId, dateLabel) {
     const isFetchErr = o.status === "fetch_or_parse_error";
     const isClaudeErr = o.status === "claude_error";
     const statusCell = isFetchErr
-      ? `<span style="color:#dc2626;font-weight:700;">✗ Fetch failed</span>${o.detail ? `<br><span style="color:#9ca3af;font-size:11px;">${o.detail}</span>` : ""}`
+      ? `<span style="color:#dc2626;font-weight:700;">✗ Fetch failed</span>${o.detail ? `<br><span style="color:#9ca3af;font-size:11px;">${escapeHtml(o.detail)}</span>` : ""}`
       : isClaudeErr
       ? `<span style="color:#d97706;font-weight:700;">⚠ AI error</span>`
       : `<span style="color:#16a34a;">✓ OK</span>`;
     return `<tr style="${isFetchErr ? "background:#fef2f2;" : ""}">
-      <td style="${rowStyle}color:#111827;">${o.feed}</td>
+      <td style="${rowStyle}color:#111827;">${escapeHtml(o.feed)}</td>
       <td style="${rowStyle}text-align:right;">${statusCell}</td>
     </tr>`;
   }).join("");
@@ -382,7 +386,7 @@ async function sendDailyHealthReport(feedOutcomes, runId, dateLabel) {
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;">
   <tr><td style="background:#0f172a;padding:20px 24px;">
     <div style="font-size:16px;font-weight:700;color:#fff;">ActAware — Feed Health Report</div>
-    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">${dateLabel} &middot; <code style="font-size:11px;">${runId}</code></div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">${escapeHtml(dateLabel)} &middot; <code style="font-size:11px;">${escapeHtml(runId)}</code></div>
   </td></tr>
   <tr><td style="padding:16px 24px;background:${bannerBg};border-bottom:1px solid #e5e7eb;">
     <div style="font-size:22px;font-weight:700;color:${bannerColor};">${statusIcon} ${fetchOk} / ${totalFeeds} feeds healthy</div>
@@ -402,7 +406,7 @@ async function sendDailyHealthReport(feedOutcomes, runId, dateLabel) {
 </body></html>`;
 
   await resend.emails.send({
-    from: "ActAware System <onboarding@resend.dev>",
+    from: getResendFrom(),
     to: process.env.ALERT_EMAIL,
     subject: `[ActAware] ${statusIcon} Feed Health: ${subjectStatus} — ${dateLabel}`,
     html,
@@ -478,40 +482,46 @@ function importanceBadgeHTML(importance) {
     MEDIUM: "background:#dbeafe;color:#1e40af;",
     LOW: "background:#f3f4f6;color:#6b7280;",
   };
-  const style = map[importance] || map.MEDIUM;
-  return `<span style="${style}font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;text-transform:uppercase;letter-spacing:0.5px;">${importance}</span>`;
+  const label = map[importance] ? importance : "MEDIUM";
+  const style = map[label];
+  return `<span style="${style}font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;text-transform:uppercase;letter-spacing:0.5px;">${label}</span>`;
 }
 
 function buildAlertCardHTML(alert) {
   const actionsHTML =
     alert.actions.length > 0
-      ? `<ul style="margin:6px 0 0 18px;color:#4b5563;line-height:1.8;padding:0 0 0 4px;">${alert.actions.map((a) => `<li style="margin-bottom:4px;font-size:14px;">${a}</li>`).join("")}</ul>`
+      ? `<ul style="margin:6px 0 0 18px;color:#4b5563;line-height:1.8;padding:0 0 0 4px;">${alert.actions.map((a) => `<li style="margin-bottom:4px;font-size:14px;">${escapeHtml(a)}</li>`).join("")}</ul>`
       : "";
+  const cc = alert.crossChecks ? textToEmailHtml(alert.crossChecks) : "";
   const proBits = [
     alert.severityRationale &&
-      `<p style="margin:10px 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Severity rationale:</strong> ${alert.severityRationale}</p>`,
+      `<p style="margin:10px 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Severity rationale:</strong> ${escapeHtml(alert.severityRationale)}</p>`,
     alert.governanceOwnership &&
-      `<p style="margin:0 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Governance & ownership:</strong> ${alert.governanceOwnership}</p>`,
+      `<p style="margin:0 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Governance & ownership:</strong> ${escapeHtml(alert.governanceOwnership)}</p>`,
     alert.suggestedTimeline &&
-      `<p style="margin:0 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Suggested timeline:</strong> ${alert.suggestedTimeline}</p>`,
+      `<p style="margin:0 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Suggested timeline:</strong> ${escapeHtml(alert.suggestedTimeline)}</p>`,
     alert.crossChecks &&
-      `<p style="margin:0 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Cross-checks:</strong><br>${alert.crossChecks.replace(/\n/g, "<br>")}</p>`,
+      `<p style="margin:0 0 6px;font-size:13px;color:#374151;line-height:1.55;"><strong style="color:#111827;">Cross-checks:</strong><br>${cc}</p>`,
   ].filter(Boolean);
   const proHTML =
     proBits.length > 0
       ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed #cbd5e1;">${proBits.join("")}</div>`
       : "";
+  const href = safeHttpUrl(alert.sourceUrl);
+  const sourceLink = href
+    ? `<p style="margin:12px 0 0;font-size:12px;color:#9ca3af;">Source: <a href="${escapeHtml(href)}" style="color:#6366f1;text-decoration:none;">${escapeHtml(href)}</a></p>`
+    : "";
   return `
     <div style="background:#f8f9fa;border:1px solid #e5e7eb;border-radius:8px;padding:18px 20px;margin-bottom:14px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;margin-bottom:8px;">${alert.sourceName}</div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;margin-bottom:8px;">${escapeHtml(alert.sourceName)}</div>
       ${importanceBadgeHTML(alert.importance)}
-      ${alert.published ? `<span style="font-size:11px;color:#9ca3af;margin-left:8px;">${alert.published}</span>` : ""}
-      ${alert.title ? `<p style="margin:10px 0 6px;font-size:15px;font-weight:700;color:#111827;line-height:1.4;">${alert.title}</p>` : ""}
-      ${alert.whatChanged ? `<p style="margin:0 0 10px;font-size:14px;color:#4b5563;line-height:1.6;"><strong style="color:#111827;">What changed:</strong> ${alert.whatChanged}</p>` : ""}
+      ${alert.published ? `<span style="font-size:11px;color:#9ca3af;margin-left:8px;">${escapeHtml(alert.published)}</span>` : ""}
+      ${alert.title ? `<p style="margin:10px 0 6px;font-size:15px;font-weight:700;color:#111827;line-height:1.4;">${escapeHtml(alert.title)}</p>` : ""}
+      ${alert.whatChanged ? `<p style="margin:0 0 10px;font-size:14px;color:#4b5563;line-height:1.6;"><strong style="color:#111827;">What changed:</strong> ${escapeHtml(alert.whatChanged)}</p>` : ""}
       ${alert.actions.length > 0 ? `<p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#111827;">What employers must do:</p>${actionsHTML}` : ""}
-      ${alert.risk ? `<p style="margin:10px 0 8px;font-size:14px;color:#4b5563;"><strong style="color:#111827;">Risk if ignored:</strong> ${alert.risk}</p>` : ""}
+      ${alert.risk ? `<p style="margin:10px 0 8px;font-size:14px;color:#4b5563;"><strong style="color:#111827;">Risk if ignored:</strong> ${escapeHtml(alert.risk)}</p>` : ""}
       ${proHTML}
-      ${alert.sourceUrl ? `<p style="margin:12px 0 0;font-size:12px;color:#9ca3af;">Source: <a href="${alert.sourceUrl}" style="color:#6366f1;text-decoration:none;">${alert.sourceUrl}</a></p>` : ""}
+      ${sourceLink}
     </div>
   `;
 }
@@ -526,6 +536,11 @@ function formatUKDate(d) {
 }
 
 function buildEmailHTML(companyName, alertSections, dateLabel, sectorNoteHtml = "") {
+  const siteBase = getSiteUrl();
+  const sectorSafe = sectorNoteHtml ? textToEmailHtml(sectorNoteHtml) : "";
+  const greeting = companyName
+    ? `Hi <strong>${escapeHtml(companyName)}</strong>`
+    : "Hi there";
   const allCards = alertSections.flatMap(section =>
     parseAlertsFromText(section.content, section.source)
   );
@@ -533,15 +548,15 @@ function buildEmailHTML(companyName, alertSections, dateLabel, sectorNoteHtml = 
     ? allCards.map(buildAlertCardHTML).join("")
     : alertSections.map(s => `
         <div style="background:#f8f9fa;border:1px solid #e5e7eb;border-radius:8px;padding:18px 20px;margin-bottom:14px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;margin-bottom:8px;">${s.source}</div>
-          <p style="font-size:14px;color:#4b5563;line-height:1.7;margin:0;">${s.content.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>")}</p>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;margin-bottom:8px;">${escapeHtml(s.source)}</div>
+          <p style="font-size:14px;color:#4b5563;line-height:1.7;margin:0;">${textToEmailHtml(s.content)}</p>
         </div>`).join("");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ActAware — ${dateLabel}</title>
+<title>ActAware — ${escapeHtml(dateLabel)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px;">
@@ -557,7 +572,7 @@ function buildEmailHTML(companyName, alertSections, dateLabel, sectorNoteHtml = 
             <td align="right">
               <div style="background:#1e293b;border-radius:6px;padding:6px 12px;display:inline-block;">
                 <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Daily</div>
-                <div style="font-size:14px;font-weight:700;color:#ffffff;line-height:1.3;max-width:140px;text-align:right;">${dateLabel}</div>
+                <div style="font-size:14px;font-weight:700;color:#ffffff;line-height:1.3;max-width:140px;text-align:right;">${escapeHtml(dateLabel)}</div>
               </div>
             </td>
           </tr>
@@ -565,17 +580,17 @@ function buildEmailHTML(companyName, alertSections, dateLabel, sectorNoteHtml = 
       </td></tr>
       <tr><td style="background:#ffffff;padding:24px 32px 8px;">
         <p style="margin:0;font-size:15px;color:#374151;line-height:1.6;">
-          Hi ${companyName ? `<strong>${companyName}</strong>` : "there"},
+          ${greeting},
         </p>
         <p style="margin:12px 0 0;font-size:15px;color:#374151;line-height:1.6;">
           Here are today's UK employer compliance updates from our monitored official sources:
         </p>
       </td></tr>
       ${
-        sectorNoteHtml
+        sectorSafe
           ? `<tr><td style="background:#fffbeb;border-left:4px solid #f59e0b;padding:16px 32px;">
         <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:0.5px;">Tailored to your sector</p>
-        <div style="font-size:14px;color:#451a03;">${sectorNoteHtml}</div>
+        <div style="font-size:14px;color:#451a03;">${sectorSafe}</div>
       </td></tr>`
           : ""
       }
@@ -598,7 +613,7 @@ function buildEmailHTML(companyName, alertSections, dateLabel, sectorNoteHtml = 
             <td style="font-size:12px;color:#9ca3af;line-height:1.6;">
               You're receiving this because you subscribed to ActAware.<br>
               All information is sourced directly from official UK government sources.<br>
-              <a href="${process.env.SITE_URL}" style="color:#6366f1;text-decoration:none;">Manage subscription</a>
+              <a href="${escapeHtml(siteBase)}" style="color:#6366f1;text-decoration:none;">Manage subscription</a>
             </td>
             <td align="right" style="font-size:11px;color:#d1d5db;white-space:nowrap;">
               actaware.co.uk
@@ -615,6 +630,10 @@ function buildEmailHTML(companyName, alertSections, dateLabel, sectorNoteHtml = 
 
 /** Short “all quiet” email when no employer-relevant items made the digest. */
 function buildQuietDayEmailHTML(companyName, dateLabel) {
+  const siteBase = getSiteUrl();
+  const greeting = companyName
+    ? `Hi <strong>${escapeHtml(companyName)}</strong>`
+    : "Hi there";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -632,7 +651,7 @@ function buildQuietDayEmailHTML(companyName, dateLabel) {
       </td></tr>
       <tr><td style="background:#ffffff;padding:28px 32px;">
         <p style="margin:0;font-size:15px;color:#374151;line-height:1.6;">
-          Hi ${companyName ? `<strong>${companyName}</strong>` : "there"},
+          ${greeting},
         </p>
         <p style="margin:16px 0 0;font-size:15px;color:#374151;line-height:1.65;">
           We scanned our <strong>${MONITORED_FEED_COUNT} monitored official UK sources</strong> for items published in the last ~36 hours (covering “yesterday” across time zones). <strong>Nothing new surfaced that required an employer-facing compliance alert today.</strong>
@@ -646,7 +665,7 @@ function buildQuietDayEmailHTML(companyName, dateLabel) {
       </td></tr>
       <tr><td style="background:#f8fafc;border-radius:0 0 12px 12px;padding:20px 32px;border-top:1px solid #e2e8f0;">
         <span style="font-size:12px;color:#9ca3af;">${dateLabel}</span>
-        <span style="float:right;font-size:12px;"><a href="${process.env.SITE_URL || "#"}" style="color:#6366f1;text-decoration:none;">Manage subscription</a></span>
+        <span style="float:right;font-size:12px;"><a href="${escapeHtml(siteBase)}" style="color:#6366f1;text-decoration:none;">Manage subscription</a></span>
       </td></tr>
     </table>
   </td></tr>

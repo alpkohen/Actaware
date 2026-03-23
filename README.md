@@ -112,6 +112,7 @@ Zamanlama: `netlify.toml` — `send-critical-alerts-background` → **`15 */2 * 
    - `supabase/migrations/20260327120000_auth_email_exists.sql` *(şifre sıfırlama öncesi e-posta kontrolü)*
    - `supabase/migrations/20260328120000_compliance_checklist_weekly_log.sql` *(checklist + haftalık özet dedupe)*
    - `supabase/migrations/20260329120000_compliance_reviews_weekly_content.sql` *(inceleme günlüğü `compliance_checklist_reviews` + haftalık özet metin/HTML kolonları)*
+   - `supabase/migrations/20260330120000_subscriptions_user_id_unique_idempotent.sql` *(isteğe bağlı tekrar çalıştırma: `subscriptions` dedupe + `UNIQUE(user_id)` yoksa ekle)*
 4. **Table Editor**’da tabloların oluştuğunu doğrulayın.
 
 > Tablolar yoksa fonksiyon çalışırken insert hataları log’a düşer; mail akışı diğer feed’lerle devam edebilir ama denetim/hata kaydı eksik kalır.
@@ -137,7 +138,7 @@ Background fonksiyon ve diğer lambda’lar için tipik değişkenler:
 | `SUPABASE_SERVICE_KEY` | **Service role** (sunucu tarafı; RLS bypass — client’a vermeyin) |
 | `RESEND_API_KEY` | E-posta gönderimi |
 | `ANTHROPIC_API_KEY` | Özet üretimi |
-| `SITE_URL` | Checkout success / footer linkleri |
+| `SITE_URL` | Checkout success / e-posta footer “Manage subscription” / dashboard linkleri. **Boşsa** kod `https://actaware.co.uk` kullanır (`lib/site-url.js`). Canlı domain farklıysa mutlaka ayarlayın. |
 | `STRIPE_SECRET_KEY` | Ödeme (checkout + webhook) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook doğrulama |
 | `ALERT_EMAIL` | *(Opsiyonel)* Feed hata olunca Resend ile uyarı almak istediğiniz adres |
