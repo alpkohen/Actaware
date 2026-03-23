@@ -505,8 +505,15 @@
           } else {
             token = suData.session?.access_token;
             if (!token) {
+              const { data: siData2 } = await supabase.auth.signInWithPassword({
+                email: payload.email,
+                password: pw,
+              });
+              token = siData2?.session?.access_token;
+            }
+            if (!token) {
               showErr(
-                "Confirm your email if prompted, then return here and click Continue again — or disable email confirmation in Supabase for testing."
+                "We've sent a confirmation email — click the link in it, then come back and click Continue again."
               );
               return;
             }

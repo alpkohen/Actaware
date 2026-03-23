@@ -415,8 +415,16 @@
         }
 
         if (!token) {
+          const { data: siData2 } = await supabase.auth.signInWithPassword({
+            email: payload.email,
+            password: pw,
+          });
+          token = siData2?.session?.access_token;
+        }
+
+        if (!token) {
           showErr(
-            "Confirm your email if prompted, then try again — or turn off “Confirm email” in Supabase Auth for smoother testing."
+            "We've sent a confirmation email — click the link in it, then come back and click Start my trial again."
           );
           btn.disabled = false;
           btn.textContent = "Start my 14-day trial";
