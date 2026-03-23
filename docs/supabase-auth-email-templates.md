@@ -2,21 +2,25 @@
 
 Supabase varsayılanı `noreply@mail.app.supabase.io` ve düz metin görünümü. **Gönderen adresi** ve **şablon** iki ayrı ayardır.
 
+ActAware girişi artık **e-posta + şifre** (`dashboard.html` → `signInWithPassword`). Önemli şablonlar: **Confirm signup** (isteğe bağlı, e-posta onayı açıksa) ve **Reset password** (`reset-password.html` yönlendirmesi).
+
 ## 1. Şablonları nereye yapıştıracaksın?
 
 1. [Supabase Dashboard](https://supabase.com/dashboard) → projen → **Authentication** → **Email Templates**
 2. Sırayla:
-   - **Magic link** — `dashboard.html` girişi (`signInWithOtp`) bunu kullanır
-   - **Confirm signup** — ilk kayıtta “Confirm your signup”
+   - **Confirm signup** — `trial.html` / `register.html` üzerinden `signUp` (e-posta onayı açıksa)
+   - **Reset password** — “Forgot password?” akışı; `{{ .ConfirmationURL }}` kullanıcının şifre sayfasına gider
 3. Her şablonda **Subject** satırını da aşağıdaki önerilerle değiştir
 4. Gövdeye aşağıdaki HTML’i yapıştır (Go template değişkenlerini **silme**)
 
+**Redirect URLs** (Supabase → Authentication → URL Configuration): üretimde mutlaka `https://<site>/reset-password.html` ekleyin.
+
 ## 2. Konu (Subject) önerileri
 
-| Şablon        | Subject önerisi                    |
-|---------------|------------------------------------|
-| Magic link    | `Sign in to ActAware`              |
-| Confirm signup| `Confirm your ActAware account`    |
+| Şablon         | Subject önerisi                    |
+|----------------|------------------------------------|
+| Confirm signup | `Confirm your ActAware account`    |
+| Reset password | `Reset your ActAware password`     |
 
 ## 3. Özel gönderen (ActAware adresinden gelsin)
 
@@ -40,7 +44,12 @@ SMTP eklemeden yalnızca HTML’i değiştirebilirsin; görünüm ActAware olur,
 
 ---
 
-## 4. Magic link — HTML gövde
+## 4. (Eski) Magic link — artık kullanılmıyor
+
+Dashboard girişi şifre ile yapılıyor. İstersen bu şablonu boş bırakabilir veya saklayabilirsin.
+
+<details>
+<summary>Magic link HTML (referans)</summary>
 
 Subject: `Sign in to ActAware`
 
@@ -93,6 +102,8 @@ Subject: `Sign in to ActAware`
 </body>
 </html>
 ```
+
+</details>
 
 ---
 
@@ -150,10 +161,16 @@ Subject: `Confirm your ActAware account`
 
 ---
 
-## 6. Kontrol listesi
+## 6. Reset password — şablon
 
-- [ ] **URL Configuration** → Redirect URLs’de `https://act-aware.netlify.app/dashboard.html` (ve gerekirse özel domain)
-- [ ] Magic link şablonunda `{{ .ConfirmationURL }}` iki yerde kaldı (buton + düz link)
+Supabase **Reset password** şablonunda `{{ .ConfirmationURL }}` kullanın; link kullanıcıyı `reset-password.html` adresinize yönlendirir (Redirect URLs’e ekli olmalı). Metni “Choose a new password for ActAware” gibi kısa tutmanız yeterli; Confirm signup şablonuna benzer bir HTML yapısı kullanabilirsiniz.
+
+---
+
+## 7. Kontrol listesi
+
+- [ ] **URL Configuration** → Redirect URLs: `…/dashboard.html` ve `…/reset-password.html` (ve özel domain)
+- [ ] Confirm signup / reset password şablonlarında `{{ .ConfirmationURL }}` doğru
 - [ ] SMTP ile gönderiyorsan Resend’de **domain / sender** doğrulandı mı?
 
 Resend + Supabase SMTP birleşimi için ayrıntı: ana `README.md` içindeki contact / Resend notlarına bak.

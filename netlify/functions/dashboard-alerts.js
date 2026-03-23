@@ -68,7 +68,7 @@ exports.handler = async function (event) {
     return {
       statusCode: 401,
       headers: h({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ error: "Sign in required. Use the magic link on this page." }),
+      body: JSON.stringify({ error: "Sign in required. Use your email and password on this page." }),
     };
   }
 
@@ -92,7 +92,7 @@ exports.handler = async function (event) {
     return {
       statusCode: 401,
       headers: h({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ error: "Invalid or expired session. Request a new sign-in link." }),
+      body: JSON.stringify({ error: "Invalid or expired session. Sign in again with your email and password." }),
     };
   }
 

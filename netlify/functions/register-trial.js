@@ -28,6 +28,35 @@ function cleanStr(v, max) {
   return t;
 }
 
+async function verifyBearerEmailMatches(event, emailNorm) {
+  const authHeader = event.headers.authorization || event.headers.Authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token) {
+    return {
+      ok: false,
+      status: 401,
+      message:
+        "Choose a password on the form to create your trial login, then submit again — or sign in at My alerts if you already registered.",
+    };
+  }
+  const url = process.env.SUPABASE_URL;
+  const anon = process.env.SUPABASE_ANON_KEY;
+  if (!url || !anon) return { ok: false, status: 503, message: "Server misconfigured." };
+  const authClient = createClient(url, anon);
+  const {
+    data: { user },
+    error,
+  } = await authClient.auth.getUser(token);
+  if (error || !user?.email) {
+    return { ok: false, status: 401, message: "Invalid or expired session. Sign in at My alerts and try again." };
+  }
+  const jwtEmail = String(user.email).trim().toLowerCase();
+  if (jwtEmail !== emailNorm) {
+    return { ok: false, status: 403, message: "Email must match your signed-in account." };
+  }
+  return { ok: true };
+}
+
 async function sendTrialWelcomeEmail({ to, firstName, trialDays, trialEndsAt }) {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
@@ -56,7 +85,7 @@ async function sendTrialWelcomeEmail({ to, firstName, trialDays, trialEndsAt }) 
     "",
     "What happens next:",
     "- We’ll email you a daily UK employer compliance digest on the same schedule as paying customers (around 08:00 UK time).",
-    "- Sign in to browse your alert history: " + site + "/dashboard.html (use this same email for the magic link).",
+    "- Sign in to browse your alert history: " + site + "/dashboard.html (same email and password you chose).",
     "- When you’re ready to continue after the trial, upgrade from your Account page or the pricing section on our site.",
     "",
     endStr ? `Your trial access is scheduled until: ${endStr} (London).` : "",
@@ -75,7 +104,7 @@ async function sendTrialWelcomeEmail({ to, firstName, trialDays, trialEndsAt }) 
     </p>
     <p style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.6;color:#4b5563;">
       We’ll email you a daily UK employer compliance digest around <strong>08:00 UK time</strong>.
-      View your alert history anytime: <a href="${site}/dashboard.html">My alerts</a> (sign in with this email).
+      View your alert history anytime: <a href="${site}/dashboard.html">My alerts</a> (sign in with your email and password).
     </p>
     ${
       endStr
@@ -172,6 +201,16 @@ exports.handler = async function (event) {
   }
 
   const emailNorm = email.toLowerCase();
+
+  const authCheck = await verifyBearerEmailMatches(event, emailNorm);
+  if (!authCheck.ok) {
+    return {
+      statusCode: authCheck.status,
+      headers: corsHeaders(),
+      body: JSON.stringify({ error: authCheck.message }),
+    };
+  }
+
   const now = new Date();
   const trialEnds = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
 

@@ -69,10 +69,18 @@ async function saveUserProfile(emailNorm, fields) {
   return inserted.id;
 }
 
-async function verifyUpgradeJwt(event, emailNorm) {
+/** Stripe checkout requires a Supabase session (email + password on register page). */
+async function verifyBearerEmailMatches(event, emailNorm) {
   const authHeader = event.headers.authorization || event.headers.Authorization || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  if (!token) return { ok: false, status: 401, message: "Sign in to upgrade without re-entering details." };
+  if (!token) {
+    return {
+      ok: false,
+      status: 401,
+      message:
+        "Set a password on this form (same email) and click Continue again — or sign in at My alerts if you already have an account.",
+    };
+  }
   const url = process.env.SUPABASE_URL;
   const anon = process.env.SUPABASE_ANON_KEY;
   if (!url || !anon) return { ok: false, status: 503, message: "Server misconfigured." };
@@ -81,7 +89,9 @@ async function verifyUpgradeJwt(event, emailNorm) {
     data: { user },
     error,
   } = await authClient.auth.getUser(token);
-  if (error || !user?.email) return { ok: false, status: 401, message: "Invalid or expired session. Sign in again." };
+  if (error || !user?.email) {
+    return { ok: false, status: 401, message: "Invalid or expired session. Sign in at My alerts and try again." };
+  }
   const jwtEmail = String(user.email).trim().toLowerCase();
   if (jwtEmail !== emailNorm) {
     return { ok: false, status: 403, message: "Email must match your signed-in account." };
@@ -161,8 +171,8 @@ exports.handler = async function (event) {
 
   const emailNorm = email.toLowerCase();
 
-  if (isUpgrade) {
-    const v = await verifyUpgradeJwt(event, emailNorm);
+  if (plan !== "agency") {
+    const v = await verifyBearerEmailMatches(event, emailNorm);
     if (!v.ok) {
       return {
         statusCode: v.status,

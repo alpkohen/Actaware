@@ -48,8 +48,15 @@
     .login-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
     .login-card p { font-size: 14px; color: #6b7280; margin-bottom: 20px; line-height: 1.55; }
     .login-card .hint { font-size: 12px; color: #9ca3af; margin-top: 16px; }
-    input[type="email"] { width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 12px; outline: none; }
-    input[type="email"]:focus { border-color: #6366f1; }
+    .login-card label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    input[type="email"],
+    input[type="password"] { width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 14px; outline: none; box-sizing: border-box; }
+    input[type="email"]:focus,
+    input[type="password"]:focus { border-color: #6366f1; }
+    .login-card .forgot { font-size: 13px; margin: -6px 0 14px; }
+    .login-card .forgot a { color: #1e3051; font-weight: 500; }
+    .login-card .signup-hint { font-size: 13px; color: #6b7280; margin-top: 16px; }
+    .login-card .signup-hint a { color: #1e3051; font-weight: 600; }
     .btn { width: 100%; padding: 11px; background: #0f172a; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
     .btn:hover { opacity: 0.9; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -94,10 +101,15 @@
   <div id="login-section">
     <div class="login-card">
       <h2>Sign in to your alerts</h2>
-      <p>We’ll email you a one-time link. Use the <strong>same address</strong> you used for your trial or paid subscription.</p>
+      <p>Enter the <strong>email and password</strong> you used when you started your trial or subscribed.</p>
+      <label for="login-email">Email</label>
       <input type="email" id="login-email" placeholder="your@email.com" autocomplete="email">
-      <button type="button" class="btn" id="btn-magic-link">Email me a sign-in link</button>
+      <label for="login-password">Password</label>
+      <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password">
+      <p class="forgot"><a href="#" id="link-forgot">Forgot password?</a></p>
+      <button type="button" class="btn" id="btn-sign-in">Sign in</button>
       <p class="msg" id="login-msg"></p>
+      <p class="signup-hint">No account yet? <a href="trial.html">Start a free trial</a> or <a href="/#pricing">see plans</a>.</p>
       <p class="hint">Professional and Agency plans can browse full alert history; Starter and trial show roughly the last 30 days.</p>
     </div>
   </div>
@@ -277,11 +289,11 @@
         cfg.hint || "Dashboard sign-in is not configured yet (missing Supabase keys on the server).",
         false
       );
-      el("btn-magic-link").disabled = true;
+      el("btn-sign-in").disabled = true;
       return;
     }
 
-    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const resetRedirect = `${window.location.origin}/reset-password.html`;
     supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
       auth: {
         flowType: "pkce",
@@ -321,30 +333,51 @@
       }
     });
 
-    el("btn-magic-link").addEventListener("click", async () => {
+    el("btn-sign-in").addEventListener("click", async () => {
       const email = el("login-email").value.trim();
+      const password = el("login-password").value;
       if (!email) {
         showLoginMsg("Enter your email address.", false);
         return;
       }
-      el("btn-magic-link").disabled = true;
-      showLoginMsg("", false);
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: redirectTo },
-      });
-      el("btn-magic-link").disabled = false;
-      if (error) {
-        showLoginMsg(error.message || "Could not send link", false);
+      if (!password) {
+        showLoginMsg("Enter your password.", false);
         return;
       }
-      showLoginMsg("Check your inbox for the sign-in link. You can close this tab.", true);
+      el("btn-sign-in").disabled = true;
+      showLoginMsg("", false);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      el("btn-sign-in").disabled = false;
+      if (error) {
+        showLoginMsg(error.message || "Could not sign in. Check your email and password.", false);
+        return;
+      }
+      showLoginMsg("", false);
+    });
+
+    el("link-forgot").addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      const email = el("login-email").value.trim();
+      if (!email) {
+        showLoginMsg("Enter your email above, then click Forgot password again.", false);
+        return;
+      }
+      showLoginMsg("", false);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: resetRedirect,
+      });
+      if (error) {
+        showLoginMsg(error.message || "Could not send reset email.", false);
+        return;
+      }
+      showLoginMsg("If an account exists for that email, we sent a link to reset your password.", true);
     });
 
     el("btn-sign-out").addEventListener("click", async () => {
       await supabase.auth.signOut();
       showLoginForm();
       el("login-email").value = "";
+      el("login-password").value = "";
     });
 
     el("btn-search").addEventListener("click", async () => {
@@ -360,6 +393,10 @@
 
     el("search-input").addEventListener("keydown", (ev) => {
       if (ev.key === "Enter") el("btn-search").click();
+    });
+
+    el("login-password").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") el("btn-sign-in").click();
     });
   }
 

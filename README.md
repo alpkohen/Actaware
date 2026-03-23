@@ -57,18 +57,19 @@ SQL Editor’da çalıştırın:
 | **seat_limit** (Starter 1, Pro 3, Agency 15) | ✅ Stripe webhook + migration; çoklu kullanıcı davet UI henüz yok |
 | Slack / Teams | ❌ Henüz yok (roadmap) |
 
-## My alerts (`dashboard.html`) — magic link + planlı arşiv
+## My alerts (`dashboard.html`) — e-posta + şifre + planlı arşiv
 
-- **Giriş:** Supabase **Email** (magic link / OTP). Kullanıcı abonelikteki e-postayla `signInWithOtp` alır; `dashboard-alerts` yalnızca geçerli **JWT** (`Authorization: Bearer …`) ile çalışır (eski “sadece e-posta gövdesi” kaldırıldı).
+- **Giriş:** Supabase **Email + password** (`signInWithPassword`). Trial (`trial.html`) ve ücretli kayıt (`register.html`, Stripe planları) önce `signUp` ile Auth kullanıcısı oluşturur; `register-trial` / `register-and-checkout` isteklerinde **Bearer JWT** zorunludur (e-posta formdakiyle aynı olmalı). `dashboard-alerts` yalnızca geçerli **JWT** ile çalışır.
+- **Şifre sıfırlama:** `dashboard.html` → “Forgot password?” → e-posta; kullanıcı `reset-password.html` üzerinden yeni şifre belirler (`resetPasswordForEmail` + `updateUser`).
 - **Arşiv:** **Professional** ve **Agency** + `subscriptions.status === 'active'` → son **500** uyarıya kadar tam geçmiş; **Starter**, **trial**, pasif veya diğer → son **30 gün** ve en fazla **100** kayıt.
 - **Netlify fonksiyonları:** `public-config` (GET) tarayıcıya `SUPABASE_URL` + `SUPABASE_ANON_KEY` döner; `dashboard-alerts` JWT’yi anon istemciyle doğrular, sorguları **service role** ile yapar.
 
 ### Supabase Auth ayarları
 
-1. **Authentication → Providers → Email** — Magic link / OTP açık olsun.
+1. **Authentication → Providers → Email** — Açık; **Confirm email** testte kapalı olabilir (kayıt sonrası anında oturum için).
 2. **Authentication → URL configuration** — **Site URL** üretim kökünüz (ör. `https://act-aware.netlify.app`).
-3. **Redirect URLs** — `https://…/dashboard.html` ve yerelde test için `http://localhost:8888/dashboard.html` (veya kullandığınız Netlify CLI portu).
-4. **E-posta görünümü (ActAware markası)** — Supabase varsayılanı “Supabase Auth” gönderenidir. **HTML şablonları** ve isteğe bağlı **SMTP (Resend)** için: `docs/supabase-auth-email-templates.md`.
+3. **Redirect URLs** — `https://…/dashboard.html`, `https://…/reset-password.html` ve yerel test portunuz (örn. `http://localhost:8888/reset-password.html`).
+4. **E-posta görünümü (ActAware markası)** — `docs/supabase-auth-email-templates.md` (confirm signup, reset password şablonları).
 
 ### Supabase
 

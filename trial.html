@@ -120,6 +120,7 @@
     .field { margin-bottom: 18px; }
     input[type="text"],
     input[type="email"],
+    input[type="password"],
     input[type="tel"],
     select,
     textarea {
@@ -226,7 +227,7 @@
   <div class="wrap">
     <div class="badge">14-day free trial</div>
     <h1>Create your trial account</h1>
-    <p class="lead">No payment details. You’ll get the same morning UK employer compliance briefings as paying customers. We ask a few questions about your organisation so we can tailor content by sector in the future.</p>
+    <p class="lead">No payment details. Choose an email and password for My alerts, then tell us about your organisation — we’ll tailor content by sector over time.</p>
 
     <div class="card">
       <div id="form-error" class="form-error" role="alert"></div>
@@ -247,6 +248,15 @@
         <div class="field">
           <label for="email">Work email <span class="req">*</span></label>
           <input type="email" id="email" name="email" required autocomplete="email" maxlength="254" placeholder="you@company.co.uk">
+        </div>
+        <div class="field">
+          <label for="password">Password <span class="req">*</span></label>
+          <input type="password" id="password" name="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="At least 8 characters">
+          <p class="hint">Use this email and password to sign in at <strong>My alerts</strong>.</p>
+        </div>
+        <div class="field">
+          <label for="passwordConfirm">Confirm password <span class="req">*</span></label>
+          <input type="password" id="passwordConfirm" name="passwordConfirm" autocomplete="new-password" minlength="8" maxlength="128">
         </div>
         <div class="field">
           <label for="phone">Phone <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
@@ -313,64 +323,130 @@
     <a href="/">Home</a> · <a href="/#pricing">Pricing</a> · <a href="/contact.html">Contact</a>
   </footer>
 
-  <script>
-    (function () {
-      var form = document.getElementById('trial-form');
-      var errEl = document.getElementById('form-error');
-      var btn = document.getElementById('submit-btn');
-
-      function showErr(msg) {
-        errEl.textContent = msg || '';
-        errEl.classList.toggle('visible', !!msg);
-      }
-
-      form.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        showErr('');
-        if (!document.getElementById('consent').checked) {
-          showErr('Please tick the box to confirm you agree to receive trial emails.');
-          return;
-        }
-        var payload = {
-          firstName: document.getElementById('firstName').value.trim(),
-          lastName: document.getElementById('lastName').value.trim(),
-          email: document.getElementById('email').value.trim(),
-          phone: document.getElementById('phone').value.trim(),
-          companyName: document.getElementById('companyName').value.trim(),
-          jobTitle: document.getElementById('jobTitle').value.trim(),
-          industry: document.getElementById('industry').value,
-          companySize: document.getElementById('companySize').value,
-          notes: document.getElementById('notes').value.trim(),
-          consent: true,
-          website: document.querySelector('input[name="website"]').value
-        };
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span>Creating your trial…';
-        try {
-          var res = await fetch('/.netlify/functions/register-trial', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          var data = {};
-          try { data = await res.json(); } catch (x) {}
-          if (res.ok && data.ok) {
-            var q = data.trialEndsAt ? '?until=' + encodeURIComponent(data.trialEndsAt) : '';
-            window.location.href = '/trial-welcome.html' + q;
-            return;
-          }
-          showErr(data.error || 'Something went wrong. Please try again.');
-        } catch (x) {
-          showErr('Network error. Check your connection and try again.');
-        }
-        btn.disabled = false;
-        btn.textContent = 'Start my 14-day trial';
-      });
-    })();
-  </script>
   <script type="module">
     import { initAuthStatus } from "/js/auth-header.js";
-    initAuthStatus();
+
+    const supabase = await initAuthStatus();
+
+    const form = document.getElementById("trial-form");
+    const errEl = document.getElementById("form-error");
+    const btn = document.getElementById("submit-btn");
+
+    function showErr(msg) {
+      errEl.textContent = msg || "";
+      errEl.classList.toggle("visible", !!msg);
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showErr("");
+      if (!document.getElementById("consent").checked) {
+        showErr("Please tick the box to confirm you agree to receive trial emails.");
+        return;
+      }
+      if (!supabase) {
+        showErr("Sign-in is not configured. Please try again later.");
+        return;
+      }
+
+      const payload = {
+        firstName: document.getElementById("firstName").value.trim(),
+        lastName: document.getElementById("lastName").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        companyName: document.getElementById("companyName").value.trim(),
+        jobTitle: document.getElementById("jobTitle").value.trim(),
+        industry: document.getElementById("industry").value,
+        companySize: document.getElementById("companySize").value,
+        notes: document.getElementById("notes").value.trim(),
+        consent: true,
+        website: document.querySelector('input[name="website"]').value,
+      };
+
+      const pw = document.getElementById("password").value;
+      const pw2 = document.getElementById("passwordConfirm").value;
+      if (!pw || pw.length < 8) {
+        showErr("Password must be at least 8 characters.");
+        return;
+      }
+      if (pw !== pw2) {
+        showErr("Passwords do not match.");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Creating your trial…';
+
+      try {
+        const { data: suData, error: suErr } = await supabase.auth.signUp({
+          email: payload.email,
+          password: pw,
+          options: {
+            data: {
+              first_name: payload.firstName,
+              last_name: payload.lastName,
+            },
+          },
+        });
+
+        let token = suData?.session?.access_token;
+        if (suErr) {
+          const msg = suErr.message || "";
+          if (/already|registered/i.test(msg)) {
+            const { data: siData, error: siErr } = await supabase.auth.signInWithPassword({
+              email: payload.email,
+              password: pw,
+            });
+            if (siErr) {
+              showErr(
+                "This email already has an account. Sign in at My alerts or use Forgot password on the sign-in page."
+              );
+              btn.disabled = false;
+              btn.textContent = "Start my 14-day trial";
+              return;
+            }
+            token = siData.session?.access_token;
+          } else {
+            showErr(msg || "Could not create account.");
+            btn.disabled = false;
+            btn.textContent = "Start my 14-day trial";
+            return;
+          }
+        }
+
+        if (!token) {
+          showErr(
+            "Confirm your email if prompted, then try again — or turn off “Confirm email” in Supabase Auth for smoother testing."
+          );
+          btn.disabled = false;
+          btn.textContent = "Start my 14-day trial";
+          return;
+        }
+
+        const res = await fetch("/.netlify/functions/register-trial", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (x) {}
+        if (res.ok && data.ok) {
+          const q = data.trialEndsAt ? "?until=" + encodeURIComponent(data.trialEndsAt) : "";
+          window.location.href = "/trial-welcome.html" + q;
+          return;
+        }
+        showErr(data.error || "Something went wrong. Please try again.");
+      } catch (x) {
+        showErr("Network error. Check your connection and try again.");
+      }
+      btn.disabled = false;
+      btn.textContent = "Start my 14-day trial";
+    });
   </script>
 </body>
 </html>

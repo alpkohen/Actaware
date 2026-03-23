@@ -128,6 +128,7 @@
     .field { margin-bottom: 18px; }
     input[type="text"],
     input[type="email"],
+    input[type="password"],
     input[type="tel"],
     select,
     textarea {
@@ -256,6 +257,17 @@
         <div class="field">
           <label for="email">Work email <span class="req">*</span></label>
           <input type="email" id="email" name="email" required autocomplete="email" maxlength="254" placeholder="you@company.co.uk">
+        </div>
+        <div id="password-fields">
+          <div class="field">
+            <label for="password">Password <span class="req">*</span></label>
+            <input type="password" id="password" name="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="At least 8 characters">
+            <p class="hint">You’ll use this email and password to sign in to <strong>My alerts</strong>.</p>
+          </div>
+          <div class="field">
+            <label for="passwordConfirm">Confirm password <span class="req">*</span></label>
+            <input type="password" id="passwordConfirm" name="passwordConfirm" autocomplete="new-password" minlength="8" maxlength="128">
+          </div>
         </div>
         <div class="field">
           <label for="phone">Phone <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
@@ -405,6 +417,13 @@
       }
     }
 
+    const pwdBlock = document.getElementById("password-fields");
+    if (plan === "agency") {
+      pwdBlock.style.display = "none";
+    } else {
+      pwdBlock.style.display = upgradeSession ? "none" : "block";
+    }
+
     const form = document.getElementById("register-form");
     const errEl = document.getElementById("form-error");
     const btn = document.getElementById("submit-btn");
@@ -437,9 +456,65 @@
         website: document.querySelector('input[name="website"]').value,
       };
       const headers = { "Content-Type": "application/json" };
-      if (upgradeSession?.access_token) {
-        headers.Authorization = `Bearer ${upgradeSession.access_token}`;
+
+      if (plan !== "agency") {
+        let token = upgradeSession?.access_token;
+        if (!token) {
+          if (!supabase) {
+            showErr("Sign-in is not configured. Please try again later.");
+            return;
+          }
+          const pw = document.getElementById("password").value;
+          const pw2 = document.getElementById("passwordConfirm").value;
+          if (!pw || pw.length < 8) {
+            showErr("Password must be at least 8 characters.");
+            return;
+          }
+          if (pw !== pw2) {
+            showErr("Passwords do not match.");
+            return;
+          }
+          const { data: suData, error: suErr } = await supabase.auth.signUp({
+            email: payload.email,
+            password: pw,
+            options: {
+              data: {
+                first_name: payload.firstName,
+                last_name: payload.lastName,
+              },
+            },
+          });
+          if (suErr) {
+            const msg = suErr.message || "";
+            if (/already|registered/i.test(msg)) {
+              const { data: siData, error: siErr } = await supabase.auth.signInWithPassword({
+                email: payload.email,
+                password: pw,
+              });
+              if (siErr) {
+                showErr(
+                  "This email already has an account. Open My alerts to sign in, or use Forgot password on the sign-in page."
+                );
+                return;
+              }
+              token = siData.session?.access_token;
+            } else {
+              showErr(msg || "Could not create account.");
+              return;
+            }
+          } else {
+            token = suData.session?.access_token;
+            if (!token) {
+              showErr(
+                "Confirm your email if prompted, then return here and click Continue again — or disable email confirmation in Supabase for testing."
+              );
+              return;
+            }
+          }
+        }
+        headers.Authorization = `Bearer ${token}`;
       }
+
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span>' + cfg.loading;
       try {
