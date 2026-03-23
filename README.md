@@ -69,7 +69,8 @@ SQL Editor’da çalıştırın:
 1. **Authentication → Providers → Email** — Açık; **Confirm email** testte kapalı olabilir (kayıt sonrası anında oturum için).
 2. **Authentication → URL configuration** — **Site URL** üretim kökünüz (ör. `https://act-aware.netlify.app`).
 3. **Redirect URLs** — `https://…/dashboard.html`, `https://…/reset-password.html` ve yerel test portunuz (örn. `http://localhost:8888/reset-password.html`).
-4. **E-posta görünümü (ActAware markası)** — `docs/supabase-auth-email-templates.md` (confirm signup, reset password şablonları).
+4. **SQL:** `supabase/migrations/20260327120000_auth_email_exists.sql` — Supabase SQL Editor’da veya CLI ile uygula; `check-auth-email` Netlify fonksiyonu şifre sıfırlama öncesi bu RPC ile hesap var mı kontrol eder.
+5. **E-posta görünümü (ActAware markası)** — `docs/supabase-auth-email-templates.md` (confirm signup, reset password şablonları).
 
 ### Supabase
 

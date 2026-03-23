@@ -227,7 +227,19 @@
     }
 
     if (alerts.length === 0 && shared.length === 0) {
-      list.innerHTML = `<div class='empty'><strong>No alerts found.</strong><br><br>If you just signed up or started a trial, your first digest is sent around <strong>08:00 UK time</strong> — check back after that, and use the <strong>same email</strong> you used to subscribe.<br><br>No matches for your search? Try different keywords or clear the search box.</div>`;
+      const searchQ = el("search-input").value.trim();
+      let tail = "";
+      if (searchQ) {
+        tail =
+          "<br><br>No matches for your search. Try different keywords or <strong>clear the search box</strong> and search again.";
+      } else if (meta?.digestSnapshotsInWindow === 0) {
+        tail =
+          "<br><br>This page shows <strong>alerts we’ve emailed to you</strong> (saved in the database), or — until those exist — <strong>recent daily briefings</strong> copied when the morning job runs (<strong>08:00 UK time</strong>). It does <strong>not</strong> read raw feed logs; those are internal pipeline data only.<br><br>If you never see briefings here, check that the <code>digest_snapshots</code> migration is applied and <code>send-alerts-background</code> has run successfully at least once after 08:00 London.";
+      } else {
+        tail =
+          "<br><br>If you just signed up, your <strong>first personal digest email</strong> is sent around <strong>08:00 UK time</strong> — after that, matching rows can appear here.";
+      }
+      list.innerHTML = `<div class='empty'><strong>No alerts to show yet.</strong>${tail}</div>`;
       return;
     }
 
@@ -363,6 +375,29 @@
         return;
       }
       showLoginMsg("", false);
+      let check;
+      try {
+        const cr = await fetch("/.netlify/functions/check-auth-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        check = await cr.json().catch(() => ({}));
+        if (!cr.ok) {
+          showLoginMsg(check.error || "Could not verify your email. Try again in a moment.", false);
+          return;
+        }
+      } catch (_) {
+        showLoginMsg("Network error. Check your connection and try again.", false);
+        return;
+      }
+      if (!check.exists) {
+        showLoginMsg(
+          "No ActAware account uses this email. Start a free trial or subscribe with this address, or check for a typo.",
+          false
+        );
+        return;
+      }
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: resetRedirect,
       });
@@ -370,7 +405,10 @@
         showLoginMsg(error.message || "Could not send reset email.", false);
         return;
       }
-      showLoginMsg("If an account exists for that email, we sent a link to reset your password.", true);
+      showLoginMsg(
+        `We sent a password reset link to ${email}. Check your inbox and spam folder — the link expires after a while.`,
+        true
+      );
     });
 
     el("btn-sign-out").addEventListener("click", async () => {

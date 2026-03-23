@@ -10,17 +10,45 @@ const ARCHIVE_DAYS_LIMITED = 30;
 const MAX_ALERTS_LIMITED = 100;
 const MAX_ALERTS_FULL = 500;
 
+/** YYYY-MM-DD in Europe/London — must match send-alerts digest_snapshots.digest_date. */
+function getLondonDateString(d = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
 function fullArchiveEligible(plan, status) {
   if (status !== "active") return false;
   return plan === "professional" || plan === "agency";
 }
 
+/** How many digest_snapshots rows exist in the same window as the dashboard fallback (for empty-state copy). */
+async function countDigestSnapshotsInWindow(supabaseAdmin) {
+  const todayStr = getLondonDateString();
+  const sinceDate = new Date();
+  sinceDate.setTime(sinceDate.getTime() - ARCHIVE_DAYS_LIMITED * 24 * 60 * 60 * 1000);
+  const sinceStr = getLondonDateString(sinceDate);
+  const { count, error } = await supabaseAdmin
+    .from("digest_snapshots")
+    .select("*", { count: "exact", head: true })
+    .gte("digest_date", sinceStr)
+    .lte("digest_date", todayStr);
+  if (error) {
+    console.warn("dashboard-alerts count digest_snapshots:", error.message);
+    return null;
+  }
+  return count ?? 0;
+}
+
 /** When sent_alerts is empty, show recent rows from digest_snapshots (same 30-day window). */
 async function fetchSharedBriefings(supabaseAdmin, searchTrim) {
-  const since = new Date();
-  since.setUTCDate(since.getUTCDate() - ARCHIVE_DAYS_LIMITED);
-  const sinceStr = since.toISOString().slice(0, 10);
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getLondonDateString();
+  const sinceDate = new Date();
+  sinceDate.setTime(sinceDate.getTime() - ARCHIVE_DAYS_LIMITED * 24 * 60 * 60 * 1000);
+  const sinceStr = getLondonDateString(sinceDate);
 
   const { data: snaps, error } = await supabaseAdmin
     .from("digest_snapshots")
@@ -170,6 +198,11 @@ exports.handler = async function (event) {
       }
     }
 
+    let digestSnapshotsInWindow = null;
+    if (personal.length === 0 && sharedBriefings.length === 0) {
+      digestSnapshotsInWindow = await countDigestSnapshotsInWindow(supabaseAdmin);
+    }
+
     return {
       statusCode: 200,
       headers: h({ "Content-Type": "application/json" }),
@@ -182,6 +215,7 @@ exports.handler = async function (event) {
           archiveFullHistory: unlimited,
           archiveDays: unlimited ? null : ARCHIVE_DAYS_LIMITED,
           showingSharedBriefings: personal.length === 0 && sharedBriefings.length > 0,
+          digestSnapshotsInWindow,
         },
       }),
     };
