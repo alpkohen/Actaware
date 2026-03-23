@@ -19,7 +19,7 @@ UK employer compliance alerts: landing pages, Stripe checkout, Netlify Functions
 
 ## Üyelik, hesap ve site başlığı
 
-- **`js/auth-header.js`** — Tüm ana sayfalarda `#auth-status`: giriş yoksa **Sign in** + **Free trial**; giriş varsa isim, plan rozeti, **Account**, **My alerts**, **Sign out** (`account-profile` GET ile plan etiketi).
+- **`js/auth-header.js`** — Tüm ana sayfalarda `#auth-status`: giriş yoksa **Sign in** + **Free trial**; giriş varsa tek satırda isim + plan rozeti ve **▾ menü** (içinde Account, My alerts, Sign out; `account-profile` GET ile plan etiketi).
 - **`account.html`** — Magic link ile giriş; profil görüntüleme / **PATCH** `account-profile`; trial veya Starter için **Upgrade** linkleri (`register.html?plan=…&upgrade=1`); ödeme yapanlar için **Manage billing** → `create-billing-portal` (Stripe Customer Portal — Dashboard’da etkinleştirilmeli).
 - **`account-profile`** — `GET` / `PATCH` + JWT (dashboard ile aynı Supabase doğrulama).
 - **`register.html?plan=…&upgrade=1`** — Oturum açıksa form `account-profile` ile doldurulur, e-posta salt okunur; gövdede `upgrade: true` ve `Authorization: Bearer …` ile **`register-and-checkout`** JWT e-posta eşleşmesini doğrular.

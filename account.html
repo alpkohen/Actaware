@@ -237,129 +237,159 @@
   </div>
 
   <script type="module">
-    import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
     import { initAuthStatus } from "/js/auth-header.js";
 
     const gate = document.getElementById("gate");
     const app = document.getElementById("app");
+    const gateP = gate.querySelector("p");
 
-    await initAuthStatus();
+    async function boot() {
+      let supabase;
+      try {
+        supabase = await initAuthStatus();
+      } catch (e) {
+        console.error(e);
+        gateP.textContent = "Could not load this page. Please refresh or try again in a moment.";
+        gate.style.display = "block";
+        return;
+      }
 
-    const cfgRes = await fetch("/.netlify/functions/public-config");
-    const cfg = await cfgRes.json().catch(() => ({}));
-    if (!cfgRes.ok || !cfg.supabaseUrl) {
-      gate.style.display = "block";
-      return;
-    }
+      if (!supabase) {
+        gateP.textContent =
+          "Account settings are temporarily unavailable. Check that the site is fully deployed, or open My alerts from the home page.";
+        gate.style.display = "block";
+        return;
+      }
 
-    const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-      auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },
-    });
+      let session;
+      try {
+        const res = await supabase.auth.getSession();
+        session = res.data?.session;
+      } catch (e) {
+        console.error(e);
+        gateP.textContent = "Could not read your session. Try signing out and signing in again from My alerts.";
+        gate.style.display = "block";
+        return;
+      }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        gate.style.display = "block";
+        return;
+      }
 
-    if (!session?.access_token) {
-      gate.style.display = "block";
-      return;
-    }
+      let profile;
+      try {
+        const pr = await fetch("/.netlify/functions/account-profile", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const raw = await pr.text();
+        let data = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch (_) {
+          data = { error: "Invalid response from server." };
+        }
+        if (!pr.ok) {
+          gateP.textContent =
+            data.error || "We could not load your account. Use the same email as your trial or subscription.";
+          gate.style.display = "block";
+          return;
+        }
+        profile = data;
+      } catch (e) {
+        console.error(e);
+        gateP.textContent = "Network error while loading your account. Check your connection and try again.";
+        gate.style.display = "block";
+        return;
+      }
 
-    let profile;
-    const pr = await fetch("/.netlify/functions/account-profile", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    if (!pr.ok) {
-      gate.querySelector("p").textContent =
-        (await pr.json().catch(() => ({}))).error || "We could not load your account. Use the same email as your trial or subscription.";
-      gate.style.display = "block";
-      return;
-    }
-    profile = await pr.json();
-    app.style.display = "block";
+      app.style.display = "block";
 
-    document.getElementById("plan-label").textContent = profile.planLabel || profile.plan;
-    document.getElementById("plan-status").textContent = `Status: ${profile.subscriptionStatus || "—"}`;
+      document.getElementById("plan-label").textContent = profile.planLabel || profile.plan;
+      document.getElementById("plan-status").textContent = `Status: ${profile.subscriptionStatus || "—"}`;
 
-    const trialLine = document.getElementById("trial-line");
-    if (profile.plan === "trial" && profile.trialEndsAt) {
-      const d = new Date(profile.trialEndsAt);
-      trialLine.textContent = `Trial ends: ${d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" })} (London)`;
-      trialLine.style.display = "block";
-    }
+      const trialLine = document.getElementById("trial-line");
+      if (profile.plan === "trial" && profile.trialEndsAt) {
+        const d = new Date(profile.trialEndsAt);
+        trialLine.textContent = `Trial ends: ${d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" })} (London)`;
+        trialLine.style.display = "block";
+      }
 
-    const planActions = document.getElementById("plan-actions");
-    const parts = [];
-    const hasPaidStripe =
-      ["starter", "professional", "agency"].includes(profile.plan) && profile.stripeSubscriptionId;
-    if (hasPaidStripe && profile.canBillingPortal) {
-      parts.push(`<button type="button" class="btn btn-secondary" id="btn-billing">Manage billing</button>`);
-    }
-    if (profile.plan === "trial") {
-      parts.push(
-        `<a class="btn btn-primary" href="register.html?plan=starter&upgrade=1">Upgrade to Starter</a>`,
-        `<a class="btn btn-secondary" href="register.html?plan=professional&upgrade=1">Upgrade to Professional</a>`
-      );
-    } else if (profile.plan === "starter") {
-      parts.push(`<a class="btn btn-secondary" href="register.html?plan=professional&upgrade=1">Upgrade to Professional</a>`);
-    }
-    planActions.innerHTML = parts.join(" ");
-    const billingBtn = document.getElementById("btn-billing");
-    if (billingBtn) {
-      billingBtn.addEventListener("click", async () => {
-        const r = await fetch("/.netlify/functions/create-billing-portal", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-          body: "{}",
+      const planActions = document.getElementById("plan-actions");
+      const parts = [];
+      const hasPaidStripe =
+        ["starter", "professional", "agency"].includes(profile.plan) && profile.stripeSubscriptionId;
+      if (hasPaidStripe && profile.canBillingPortal) {
+        parts.push(`<button type="button" class="btn btn-secondary" id="btn-billing">Manage billing</button>`);
+      }
+      if (profile.plan === "trial") {
+        parts.push(
+          `<a class="btn btn-primary" href="register.html?plan=starter&upgrade=1">Upgrade to Starter</a>`,
+          `<a class="btn btn-secondary" href="register.html?plan=professional&upgrade=1">Upgrade to Professional</a>`
+        );
+      } else if (profile.plan === "starter") {
+        parts.push(`<a class="btn btn-secondary" href="register.html?plan=professional&upgrade=1">Upgrade to Professional</a>`);
+      }
+      planActions.innerHTML = parts.join(" ");
+      const billingBtn = document.getElementById("btn-billing");
+      if (billingBtn) {
+        billingBtn.addEventListener("click", async () => {
+          const r = await fetch("/.netlify/functions/create-billing-portal", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+            body: "{}",
+          });
+          const data = await r.json().catch(() => ({}));
+          if (r.ok && data.url) window.location.href = data.url;
+          else alert(data.error || "Could not open billing portal. Enable Customer Portal in Stripe Dashboard.");
+        });
+      }
+
+      document.getElementById("firstName").value = profile.firstName || "";
+      document.getElementById("lastName").value = profile.lastName || "";
+      document.getElementById("email").value = profile.email || "";
+      document.getElementById("companyName").value = profile.companyName || "";
+      document.getElementById("jobTitle").value = profile.jobTitle || "";
+      document.getElementById("industry").value = profile.industry || "";
+      document.getElementById("companySize").value = profile.companySize || "";
+      document.getElementById("phone").value = profile.phone || "";
+      document.getElementById("notes").value = profile.notes || "";
+
+      const msg = document.getElementById("profile-msg");
+      document.getElementById("profile-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        msg.className = "msg";
+        msg.textContent = "";
+        const body = {
+          firstName: document.getElementById("firstName").value.trim(),
+          lastName: document.getElementById("lastName").value.trim(),
+          companyName: document.getElementById("companyName").value.trim(),
+          jobTitle: document.getElementById("jobTitle").value.trim(),
+          industry: document.getElementById("industry").value,
+          companySize: document.getElementById("companySize").value,
+          phone: document.getElementById("phone").value.trim(),
+          notes: document.getElementById("notes").value.trim(),
+        };
+        const r = await fetch("/.netlify/functions/account-profile", {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
         });
         const data = await r.json().catch(() => ({}));
-        if (r.ok && data.url) window.location.href = data.url;
-        else alert(data.error || "Could not open billing portal. Enable Customer Portal in Stripe Dashboard.");
+        if (r.ok) {
+          msg.className = "msg ok";
+          msg.textContent = "Saved.";
+        } else {
+          msg.className = "msg err";
+          msg.textContent = data.error || "Could not save.";
+        }
       });
     }
 
-    document.getElementById("firstName").value = profile.firstName || "";
-    document.getElementById("lastName").value = profile.lastName || "";
-    document.getElementById("email").value = profile.email || "";
-    document.getElementById("companyName").value = profile.companyName || "";
-    document.getElementById("jobTitle").value = profile.jobTitle || "";
-    document.getElementById("industry").value = profile.industry || "";
-    document.getElementById("companySize").value = profile.companySize || "";
-    document.getElementById("phone").value = profile.phone || "";
-    document.getElementById("notes").value = profile.notes || "";
-
-    const msg = document.getElementById("profile-msg");
-    document.getElementById("profile-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      msg.className = "msg";
-      msg.textContent = "";
-      const body = {
-        firstName: document.getElementById("firstName").value.trim(),
-        lastName: document.getElementById("lastName").value.trim(),
-        companyName: document.getElementById("companyName").value.trim(),
-        jobTitle: document.getElementById("jobTitle").value.trim(),
-        industry: document.getElementById("industry").value,
-        companySize: document.getElementById("companySize").value,
-        phone: document.getElementById("phone").value.trim(),
-        notes: document.getElementById("notes").value.trim(),
-      };
-      const r = await fetch("/.netlify/functions/account-profile", {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (r.ok) {
-        msg.className = "msg ok";
-        msg.textContent = "Saved.";
-      } else {
-        msg.className = "msg err";
-        msg.textContent = data.error || "Could not save.";
-      }
-    });
+    boot();
   </script>
 </body>
 </html>
