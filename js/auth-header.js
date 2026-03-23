@@ -187,7 +187,7 @@ export async function initAuthStatus(opts = {}) {
             <span class="auth-caret" aria-hidden="true">▾</span>
           </button>
           <div class="auth-menu-dropdown" hidden data-auth-menu>
-            <a href="${paths.signIn}" class="auth-menu-item">My alerts</a>
+            <a href="${paths.alerts}" class="auth-menu-item">My alerts</a>
             <button type="button" class="auth-menu-item auth-menu-signout" data-auth-signout>Sign out</button>
           </div>
         </div>

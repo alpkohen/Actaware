@@ -78,7 +78,28 @@
     .badge-medium { background: #e0f2fe; color: #0369a1; }
     .empty { text-align: center; color: #9ca3af; padding: 48px 16px; font-size: 14px; line-height: 1.65; max-width: 520px; margin: 0 auto; }
     .empty strong { color: #4b5563; }
-    #login-section { display: block; }
+    #session-checking {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 42vh;
+      padding: 48px 24px;
+      text-align: center;
+      color: #6b7280;
+      font-size: 15px;
+      gap: 12px;
+    }
+    #session-checking .session-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #0f172a;
+      border-radius: 50%;
+      animation: dash-spin 0.75s linear infinite;
+    }
+    @keyframes dash-spin { to { transform: rotate(360deg); } }
+    #login-section { display: none; }
     #dashboard-section { display: none; }
     .archive-banner { font-size: 12px; color: #6b7280; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; line-height: 1.5; }
     .archive-banner.shared-info { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
@@ -98,6 +119,11 @@
   <div id="auth-status"></div>
 </header>
 <div class="container">
+  <div id="session-checking" aria-live="polite" aria-busy="true">
+    <div class="session-spinner" aria-hidden="true"></div>
+    <p style="margin:0;font-weight:500;color:#374151;">Loading…</p>
+    <p style="margin:0;font-size:13px;max-width:280px;line-height:1.5;">If you’re signed in, your alerts will appear in a moment.</p>
+  </div>
   <div id="login-section">
     <div class="login-card">
       <h2>Sign in to your alerts</h2>
@@ -110,7 +136,6 @@
       <button type="button" class="btn" id="btn-sign-in">Sign in</button>
       <p class="msg" id="login-msg"></p>
       <p class="signup-hint">No account yet? <a href="trial.html">Start a free trial</a> or <a href="/#pricing">see plans</a>.</p>
-      <p class="hint">Professional and Agency plans can browse full alert history; Starter and trial show roughly the last 30 days.</p>
     </div>
   </div>
   <div id="dashboard-section">
@@ -159,6 +184,13 @@
   let lastLoadedAuthUserId = null;
 
   const el = (id) => document.getElementById(id);
+
+  function setSessionChecking(show) {
+    const box = el("session-checking");
+    if (!box) return;
+    box.style.display = show ? "flex" : "none";
+    box.setAttribute("aria-busy", show ? "true" : "false");
+  }
 
   function showLoginMsg(text, ok) {
     const m = el("login-msg");
@@ -232,12 +264,9 @@
       if (searchQ) {
         tail =
           "<br><br>No matches for your search. Try different keywords or <strong>clear the search box</strong> and search again.";
-      } else if (meta?.digestSnapshotsInWindow === 0) {
-        tail =
-          "<br><br>This page shows <strong>alerts we’ve emailed to you</strong> (saved in the database), or — until those exist — <strong>recent daily briefings</strong> copied when the morning job runs (<strong>08:00 UK time</strong>). It does <strong>not</strong> read raw feed logs; those are internal pipeline data only.<br><br>If you never see briefings here, check that the <code>digest_snapshots</code> migration is applied and <code>send-alerts-background</code> has run successfully at least once after 08:00 London.";
       } else {
         tail =
-          "<br><br>If you just signed up, your <strong>first personal digest email</strong> is sent around <strong>08:00 UK time</strong> — after that, matching rows can appear here.";
+          "<br><br>Your <strong>first digest email</strong> is usually sent around <strong>08:00 UK time</strong> (London). After that, the alerts we email you will show up here. Check your <strong>spam or promotions</strong> folder, or visit <a href=\"contact.html\" style=\"color:#1e3051;font-weight:600;\">Contact</a> if nothing arrives.";
       }
       list.innerHTML = `<div class='empty'><strong>No alerts to show yet.</strong>${tail}</div>`;
       return;
@@ -286,6 +315,7 @@
   }
 
   function showLoginForm() {
+    setSessionChecking(false);
     el("login-section").style.display = "block";
     el("dashboard-section").style.display = "none";
     allAlerts = [];
@@ -297,6 +327,8 @@
     const cfgRes = await fetch("/.netlify/functions/public-config");
     const cfg = await cfgRes.json().catch(() => ({}));
     if (!cfgRes.ok || !cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+      setSessionChecking(false);
+      el("login-section").style.display = "block";
       showLoginMsg(
         cfg.hint || "Dashboard sign-in is not configured yet (missing Supabase keys on the server).",
         false
@@ -325,7 +357,10 @@
         showLoginMsg(e.message || "Could not load alerts", false);
         showLoginForm();
       }
+    } else {
+      el("login-section").style.display = "block";
     }
+    setSessionChecking(false);
 
     supabase.auth.onAuthStateChange(async (event, sess) => {
       if (event === "SIGNED_OUT" || !sess) {
@@ -337,11 +372,19 @@
         return;
       }
       if (event === "SIGNED_IN" && sess?.access_token) {
+        if (el("dashboard-section").style.display === "block" && sess.user?.id === lastLoadedAuthUserId) {
+          session = sess;
+          return;
+        }
+        setSessionChecking(true);
+        el("login-section").style.display = "none";
         try {
           await loadDashboard(sess);
         } catch (e) {
           showLoginMsg(e.message || "Could not load alerts", false);
+          showLoginForm();
         }
+        setSessionChecking(false);
       }
     });
 

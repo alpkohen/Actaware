@@ -385,8 +385,11 @@
           data = await res.json();
         } catch (x) {}
         if (res.ok && data.ok) {
-          const q = data.trialEndsAt ? "?until=" + encodeURIComponent(data.trialEndsAt) : "";
-          window.location.href = "/trial-welcome.html" + q;
+          const params = new URLSearchParams();
+          if (data.trialEndsAt) params.set("until", data.trialEndsAt);
+          if (data.welcomeEmailSent === false) params.set("welcomeEmail", "0");
+          const qs = params.toString();
+          window.location.href = "/trial-welcome.html" + (qs ? "?" + qs : "");
           return;
         }
         showErr(data.error || "Something went wrong. Please try again.");

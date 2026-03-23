@@ -29,11 +29,14 @@ function cleanStr(v, max) {
   return t;
 }
 
+/**
+ * @returns {{ sent: boolean, reason?: string }}
+ */
 async function sendTrialWelcomeEmail({ to, firstName, trialDays, trialEndsAt }) {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     console.warn("register-trial: RESEND_API_KEY missing, skipping welcome email");
-    return;
+    return { sent: false, reason: "missing_resend_key" };
   }
   const site = (process.env.SITE_URL || "https://act-aware.netlify.app").replace(/\/$/, "");
   const name = firstName || "there";
@@ -90,17 +93,22 @@ async function sendTrialWelcomeEmail({ to, firstName, trialDays, trialEndsAt }) 
 
   try {
     const resend = new Resend(key);
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: getResendFrom(),
       to,
       subject: "You’re in — ActAware free trial started",
       text,
       html,
     });
-    if (error) console.error("register-trial Resend:", JSON.stringify(error));
-    else console.log("register-trial: welcome email sent to", to);
+    if (error) {
+      console.error("register-trial Resend:", JSON.stringify(error));
+      return { sent: false, reason: error.message || "resend_rejected" };
+    }
+    console.log("register-trial: welcome email sent to", to, data?.id || "");
+    return { sent: true };
   } catch (e) {
     console.error("register-trial welcome email:", e.message);
+    return { sent: false, reason: e.message || "send_failed" };
   }
 }
 
@@ -285,7 +293,7 @@ exports.handler = async function (event) {
       if (sErr) throw sErr;
     }
 
-    await sendTrialWelcomeEmail({
+    const emailResult = await sendTrialWelcomeEmail({
       to: emailNorm,
       firstName,
       trialDays: TRIAL_DAYS,
@@ -299,6 +307,7 @@ exports.handler = async function (event) {
         ok: true,
         trialDays: TRIAL_DAYS,
         trialEndsAt: trialEnds.toISOString(),
+        welcomeEmailSent: emailResult.sent,
       }),
     };
   } catch (err) {

@@ -108,7 +108,7 @@
   <div class="trial-top"><div id="auth-status"></div></div>
   <a href="/" class="logo">Act<span>Aware</span></a>
   <h1>Your trial is live</h1>
-  <p>We’ve sent a <strong>welcome email</strong> to your inbox with next steps and links to your account and alerts.</p>
+  <p id="welcome-email-line">We’ve sent a <strong>welcome email</strong> to your inbox with next steps and links to your account and alerts. <strong>Check spam or promotions</strong> if you don’t see it within a few minutes.</p>
   <p>You’ll get UK employer compliance briefings when our morning digest runs (<strong>08:00 UK time</strong>, same schedule as paying customers) — all <strong>17</strong> official sources.</p>
   <p id="until-line" class="until" style="display:none"></p>
   <p>When you’re ready, pick a plan to continue after the trial.</p>
@@ -120,6 +120,12 @@
   <script>
     (function () {
       var params = new URLSearchParams(window.location.search);
+      if (params.get('welcomeEmail') === '0') {
+        var line = document.getElementById('welcome-email-line');
+        if (line) {
+          line.innerHTML = 'We couldn’t send the welcome email automatically (often a mail provider block or a config issue on our side). <strong>Your trial is still active.</strong> Sign in to <a href="/dashboard.html" style="color:#C9922A;">My alerts</a> with the email and password you chose, or <a href="/contact.html" style="color:#C9922A;">contact us</a> and we’ll help.';
+        }
+      }
       var until = params.get('until');
       if (until) {
         try {
