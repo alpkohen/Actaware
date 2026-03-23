@@ -165,13 +165,14 @@
     }
     .checklist-row.covered { border-left-color: #22c55e; background: #f0fdf4; }
     .checklist-row.legacy  { border-left-color: #f59e0b; background: #fffbeb; }
-    .checklist-status-dot {
-      display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 3px;
+    .checklist-status-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; font-size: 13px; font-weight: 700; line-height: 1;
     }
-    .checklist-status-dot.covered { background: #22c55e; }
-    .checklist-status-dot.legacy  { background: #f59e0b; }
-    .checklist-status-dot.none    { background: #d1d5db; }
-    .checklist-row-head { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-start; justify-content: space-between; }
+    .checklist-status-icon.covered { background: #dcfce7; color: #16a34a; }
+    .checklist-status-icon.legacy  { background: #fef9c3; color: #b45309; }
+    .checklist-status-icon.none    { background: #f3f4f6; color: #9ca3af; }
+    .checklist-row-head { display: flex; flex-wrap: nowrap; gap: 8px 10px; align-items: center; justify-content: space-between; }
     .checklist-row-title { font-size: 13px; font-weight: 600; color: #111; flex: 1; min-width: 200px; line-height: 1.45; }
     .checklist-row-meta { font-size: 12px; color: #6b7280; width: 100%; }
     .btn-log-review {
@@ -511,11 +512,12 @@
           : "";
       const btnDis = comp.checklistEditable ? "" : " disabled";
       const rowCls = rc > 0 ? "covered" : it.hasLegacyTick ? "legacy" : "";
-      const dotCls = rc > 0 ? "covered" : it.hasLegacyTick ? "legacy" : "none";
-      const dotTitle = rc > 0 ? "Reviewed" : it.hasLegacyTick ? "Legacy tick — log a fresh review" : "Not reviewed yet";
+      const iconCls = rc > 0 ? "covered" : it.hasLegacyTick ? "legacy" : "none";
+      const iconChar = rc > 0 ? "✓" : it.hasLegacyTick ? "~" : "✗";
+      const iconTitle = rc > 0 ? "Reviewed" : it.hasLegacyTick ? "Legacy tick — log a fresh review" : "Not reviewed yet";
       html += `<div class="checklist-row ${rowCls}" data-item-id="${escapeHtml(it.id)}">
         <div class="checklist-row-head">
-          <span class="checklist-status-dot ${dotCls}" title="${escapeHtml(dotTitle)}"></span>
+          <span class="checklist-status-icon ${iconCls}" title="${escapeHtml(iconTitle)}">${iconChar}</span>
           <div class="checklist-row-title">${escapeHtml(it.title)}</div>
           <button type="button" class="btn-log-review" data-log-review="${escapeHtml(it.id)}"${btnDis}>Log review</button>
         </div>
