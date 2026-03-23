@@ -161,9 +161,17 @@
     }
     .milestone-actions .btn-ics:hover { opacity: 0.92; }
     .checklist-row {
-      border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; background: #fafafa;
+      border: 1px solid #e5e7eb; border-left: 3px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; background: #fafafa;
     }
-    .checklist-row-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; justify-content: space-between; }
+    .checklist-row.covered { border-left-color: #22c55e; background: #f0fdf4; }
+    .checklist-row.legacy  { border-left-color: #f59e0b; background: #fffbeb; }
+    .checklist-status-dot {
+      display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 3px;
+    }
+    .checklist-status-dot.covered { background: #22c55e; }
+    .checklist-status-dot.legacy  { background: #f59e0b; }
+    .checklist-status-dot.none    { background: #d1d5db; }
+    .checklist-row-head { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-start; justify-content: space-between; }
     .checklist-row-title { font-size: 13px; font-weight: 600; color: #111; flex: 1; min-width: 200px; line-height: 1.45; }
     .checklist-row-meta { font-size: 12px; color: #6b7280; width: 100%; }
     .btn-log-review {
@@ -273,6 +281,8 @@
       <p style="font-size:13px;color:#6b7280;margin:-6px 0 12px;line-height:1.5;">Same recap we email on Fridays. Open or print to PDF (browser print → Save as PDF).</p>
       <div id="weekly-recap-list"></div>
     </div>
+
+    <h3 style="font-size:16px;font-weight:700;margin:28px 0 10px;">Your alerts</h3>
 
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="Search alerts (e.g. SSP, paternity, NMW)...">
@@ -500,8 +510,12 @@
           ? `<details class="checklist-history"><summary>Review history</summary><ul>${hist}</ul></details>`
           : "";
       const btnDis = comp.checklistEditable ? "" : " disabled";
-      html += `<div class="checklist-row" data-item-id="${escapeHtml(it.id)}">
+      const rowCls = rc > 0 ? "covered" : it.hasLegacyTick ? "legacy" : "";
+      const dotCls = rc > 0 ? "covered" : it.hasLegacyTick ? "legacy" : "none";
+      const dotTitle = rc > 0 ? "Reviewed" : it.hasLegacyTick ? "Legacy tick — log a fresh review" : "Not reviewed yet";
+      html += `<div class="checklist-row ${rowCls}" data-item-id="${escapeHtml(it.id)}">
         <div class="checklist-row-head">
+          <span class="checklist-status-dot ${dotCls}" title="${escapeHtml(dotTitle)}"></span>
           <div class="checklist-row-title">${escapeHtml(it.title)}</div>
           <button type="button" class="btn-log-review" data-log-review="${escapeHtml(it.id)}"${btnDis}>Log review</button>
         </div>
