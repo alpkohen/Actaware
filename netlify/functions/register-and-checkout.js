@@ -1,6 +1,7 @@
 const Stripe = require("stripe");
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
+const { ensureAuthUserWithPassword } = require("./lib/ensure-auth-user");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -172,13 +173,28 @@ exports.handler = async function (event) {
   const emailNorm = email.toLowerCase();
 
   if (plan !== "agency") {
-    const v = await verifyBearerEmailMatches(event, emailNorm);
-    if (!v.ok) {
-      return {
-        statusCode: v.status,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: v.message }),
-      };
+    if (isUpgrade) {
+      const v = await verifyBearerEmailMatches(event, emailNorm);
+      if (!v.ok) {
+        return {
+          statusCode: v.status,
+          headers: corsHeaders(),
+          body: JSON.stringify({ error: v.message }),
+        };
+      }
+    } else {
+      const password = String(body.password ?? "");
+      const authResult = await ensureAuthUserWithPassword(supabase, emailNorm, password, {
+        first_name: firstName,
+        last_name: lastName,
+      });
+      if (!authResult.ok) {
+        return {
+          statusCode: authResult.status,
+          headers: corsHeaders(),
+          body: JSON.stringify({ error: authResult.message }),
+        };
+      }
     }
   }
 

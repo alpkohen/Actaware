@@ -59,7 +59,7 @@ SQL Editor’da çalıştırın:
 
 ## My alerts (`dashboard.html`) — e-posta + şifre + planlı arşiv
 
-- **Giriş:** Supabase **Email + password** (`signInWithPassword`). Trial (`trial.html`) ve ücretli kayıt (`register.html`, Stripe planları) önce `signUp` ile Auth kullanıcısı oluşturur; `register-trial` / `register-and-checkout` isteklerinde **Bearer JWT** zorunludur (e-posta formdakiyle aynı olmalı). `dashboard-alerts` yalnızca geçerli **JWT** ile çalışır.
+- **Giriş:** Supabase **Email + password** (`signInWithPassword`). Trial ve yeni ücretli kayıtta şifre **Netlify fonksiyonuna** (HTTPS) gider; sunucu `auth.admin.createUser` ile kullanıcıyı **doğrudan onaylı** oluşturur — Supabase “confirm email” e-postasına ihtiyaç yok. **Upgrade** akışında hâlâ tarayıcı **Bearer JWT** kullanılır. `dashboard-alerts` yalnızca geçerli **JWT** ile çalışır.
 - **Şifre sıfırlama:** `dashboard.html` → “Forgot password?” → e-posta; kullanıcı `reset-password.html` üzerinden yeni şifre belirler (`resetPasswordForEmail` + `updateUser`).
 - **Arşiv:** **Professional** ve **Agency** + `subscriptions.status === 'active'` → son **500** uyarıya kadar tam geçmiş; **Starter**, **trial**, pasif veya diğer → son **30 gün** ve en fazla **100** kayıt.
 - **Netlify fonksiyonları:** `public-config` (GET) tarayıcıya `SUPABASE_URL` + `SUPABASE_ANON_KEY` döner; `dashboard-alerts` JWT’yi anon istemciyle doğrular, sorguları **service role** ile yapar.

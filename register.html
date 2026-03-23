@@ -458,12 +458,9 @@
       const headers = { "Content-Type": "application/json" };
 
       if (plan !== "agency") {
-        let token = upgradeSession?.access_token;
-        if (!token) {
-          if (!supabase) {
-            showErr("Sign-in is not configured. Please try again later.");
-            return;
-          }
+        if (upgradeSession?.access_token) {
+          headers.Authorization = `Bearer ${upgradeSession.access_token}`;
+        } else {
           const pw = document.getElementById("password").value;
           const pw2 = document.getElementById("passwordConfirm").value;
           if (!pw || pw.length < 8) {
@@ -474,52 +471,8 @@
             showErr("Passwords do not match.");
             return;
           }
-          const { data: suData, error: suErr } = await supabase.auth.signUp({
-            email: payload.email,
-            password: pw,
-            options: {
-              data: {
-                first_name: payload.firstName,
-                last_name: payload.lastName,
-              },
-            },
-          });
-          if (suErr) {
-            const msg = suErr.message || "";
-            if (/already|registered/i.test(msg)) {
-              const { data: siData, error: siErr } = await supabase.auth.signInWithPassword({
-                email: payload.email,
-                password: pw,
-              });
-              if (siErr) {
-                showErr(
-                  "This email already has an account. Open My alerts to sign in, or use Forgot password on the sign-in page."
-                );
-                return;
-              }
-              token = siData.session?.access_token;
-            } else {
-              showErr(msg || "Could not create account.");
-              return;
-            }
-          } else {
-            token = suData.session?.access_token;
-            if (!token) {
-              const { data: siData2 } = await supabase.auth.signInWithPassword({
-                email: payload.email,
-                password: pw,
-              });
-              token = siData2?.session?.access_token;
-            }
-            if (!token) {
-              showErr(
-                "We've sent a confirmation email — click the link in it, then come back and click Continue again."
-              );
-              return;
-            }
-          }
+          payload.password = pw;
         }
-        headers.Authorization = `Bearer ${token}`;
       }
 
       btn.disabled = true;

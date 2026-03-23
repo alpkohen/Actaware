@@ -2,6 +2,7 @@ const { createClient } = require("@supabase/supabase-js");
 const { Resend } = require("resend");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
 const { getResendFrom } = require("./lib/resend-from");
+const { ensureAuthUserWithPassword } = require("./lib/ensure-auth-user");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -26,35 +27,6 @@ function cleanStr(v, max) {
   const t = String(v ?? "").trim();
   if (t.length > max) return t.slice(0, max);
   return t;
-}
-
-async function verifyBearerEmailMatches(event, emailNorm) {
-  const authHeader = event.headers.authorization || event.headers.Authorization || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  if (!token) {
-    return {
-      ok: false,
-      status: 401,
-      message:
-        "Choose a password on the form to create your trial login, then submit again — or sign in at My alerts if you already registered.",
-    };
-  }
-  const url = process.env.SUPABASE_URL;
-  const anon = process.env.SUPABASE_ANON_KEY;
-  if (!url || !anon) return { ok: false, status: 503, message: "Server misconfigured." };
-  const authClient = createClient(url, anon);
-  const {
-    data: { user },
-    error,
-  } = await authClient.auth.getUser(token);
-  if (error || !user?.email) {
-    return { ok: false, status: 401, message: "Invalid or expired session. Sign in at My alerts and try again." };
-  }
-  const jwtEmail = String(user.email).trim().toLowerCase();
-  if (jwtEmail !== emailNorm) {
-    return { ok: false, status: 403, message: "Email must match your signed-in account." };
-  }
-  return { ok: true };
 }
 
 async function sendTrialWelcomeEmail({ to, firstName, trialDays, trialEndsAt }) {
@@ -201,13 +173,17 @@ exports.handler = async function (event) {
   }
 
   const emailNorm = email.toLowerCase();
+  const password = String(body.password ?? "");
 
-  const authCheck = await verifyBearerEmailMatches(event, emailNorm);
-  if (!authCheck.ok) {
+  const authResult = await ensureAuthUserWithPassword(supabase, emailNorm, password, {
+    first_name: firstName,
+    last_name: lastName,
+  });
+  if (!authResult.ok) {
     return {
-      statusCode: authCheck.status,
+      statusCode: authResult.status,
       headers: corsHeaders(),
-      body: JSON.stringify({ error: authCheck.message }),
+      body: JSON.stringify({ error: authResult.message }),
     };
   }
 

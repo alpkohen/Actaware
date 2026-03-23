@@ -326,7 +326,7 @@
   <script type="module">
     import { initAuthStatus } from "/js/auth-header.js";
 
-    const supabase = await initAuthStatus();
+    await initAuthStatus();
 
     const form = document.getElementById("trial-form");
     const errEl = document.getElementById("form-error");
@@ -344,24 +344,6 @@
         showErr("Please tick the box to confirm you agree to receive trial emails.");
         return;
       }
-      if (!supabase) {
-        showErr("Sign-in is not configured. Please try again later.");
-        return;
-      }
-
-      const payload = {
-        firstName: document.getElementById("firstName").value.trim(),
-        lastName: document.getElementById("lastName").value.trim(),
-        email: document.getElementById("email").value.trim(),
-        phone: document.getElementById("phone").value.trim(),
-        companyName: document.getElementById("companyName").value.trim(),
-        jobTitle: document.getElementById("jobTitle").value.trim(),
-        industry: document.getElementById("industry").value,
-        companySize: document.getElementById("companySize").value,
-        notes: document.getElementById("notes").value.trim(),
-        consent: true,
-        website: document.querySelector('input[name="website"]').value,
-      };
 
       const pw = document.getElementById("password").value;
       const pw2 = document.getElementById("passwordConfirm").value;
@@ -374,69 +356,28 @@
         return;
       }
 
+      const payload = {
+        firstName: document.getElementById("firstName").value.trim(),
+        lastName: document.getElementById("lastName").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        password: pw,
+        phone: document.getElementById("phone").value.trim(),
+        companyName: document.getElementById("companyName").value.trim(),
+        jobTitle: document.getElementById("jobTitle").value.trim(),
+        industry: document.getElementById("industry").value,
+        companySize: document.getElementById("companySize").value,
+        notes: document.getElementById("notes").value.trim(),
+        consent: true,
+        website: document.querySelector('input[name="website"]').value,
+      };
+
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span>Creating your trial…';
 
       try {
-        const { data: suData, error: suErr } = await supabase.auth.signUp({
-          email: payload.email,
-          password: pw,
-          options: {
-            data: {
-              first_name: payload.firstName,
-              last_name: payload.lastName,
-            },
-          },
-        });
-
-        let token = suData?.session?.access_token;
-        if (suErr) {
-          const msg = suErr.message || "";
-          if (/already|registered/i.test(msg)) {
-            const { data: siData, error: siErr } = await supabase.auth.signInWithPassword({
-              email: payload.email,
-              password: pw,
-            });
-            if (siErr) {
-              showErr(
-                "This email already has an account. Sign in at My alerts or use Forgot password on the sign-in page."
-              );
-              btn.disabled = false;
-              btn.textContent = "Start my 14-day trial";
-              return;
-            }
-            token = siData.session?.access_token;
-          } else {
-            showErr(msg || "Could not create account.");
-            btn.disabled = false;
-            btn.textContent = "Start my 14-day trial";
-            return;
-          }
-        }
-
-        if (!token) {
-          const { data: siData2 } = await supabase.auth.signInWithPassword({
-            email: payload.email,
-            password: pw,
-          });
-          token = siData2?.session?.access_token;
-        }
-
-        if (!token) {
-          showErr(
-            "We've sent a confirmation email — click the link in it, then come back and click Start my trial again."
-          );
-          btn.disabled = false;
-          btn.textContent = "Start my 14-day trial";
-          return;
-        }
-
         const res = await fetch("/.netlify/functions/register-trial", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         let data = {};
