@@ -31,7 +31,9 @@ ${items.map((i, idx) => `[${idx + 1}] Title: ${i.title}\nPublished: ${i.publishe
 ---
 RULES:
 - Write clear, practical, plain-English guidance for UK employers.
+- RELEVANCE FILTER — Only report items that create a direct legal obligation, compliance risk, financial penalty, or deadline for UK employers. The following are NOT employer-relevant and must be SKIPPED: trade agreements, ministerial visits, awareness campaigns, general policy announcements, international relations, educational outreach, and "nice to know" sector news with no compliance consequence. When in doubt, skip it.
 - Use information from the source text. Where content is limited (e.g. only a title), use the title to infer the relevant employer lesson — for example, an HSE prosecution title tells you what safety failure occurred and what employers must do to avoid it.
+- EMPTY CONTENT — If the source only provides a title with no body text: focus on the general topic and employer obligation it implies. Do NOT speculate on case outcomes, tribunal decisions, or ruling details. Do NOT repeat party names or company names from the title — refer to the case generically (e.g. "a recent tribunal decision on…").
 - Never invent specific facts (dates, fines, company names not in the source). You may infer general employer obligations from the type of incident or change described.
 - If genuinely nothing is employer-relevant for the items provided (typically the last ~36 hours), respond ONLY with: No employer-relevant updates from this source in this batch.
 - For each relevant update use this exact format:

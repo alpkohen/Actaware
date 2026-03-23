@@ -209,7 +209,9 @@ ${items.map((i, idx) => `[${idx + 1}] Title: ${i.title}\nPublished: ${i.publishe
 ---
 RULES:
 - Write clear, practical, plain-English guidance for UK employers.
+- RELEVANCE FILTER — Only report items that create a direct legal obligation, compliance risk, financial penalty, or deadline for UK employers. The following are NOT employer-relevant and must be SKIPPED: trade agreements, ministerial visits, awareness campaigns, general policy announcements, international relations, educational outreach, and "nice to know" sector news with no compliance consequence. When in doubt, skip it.
 - Use information from the source text. Where content is limited (e.g. only a title), use the title to infer the relevant employer lesson — for example, an HSE prosecution title tells you what safety failure occurred and what employers must do to avoid it.
+- EMPTY CONTENT — If the source only provides a title with no body text: focus on the general topic and employer obligation it implies. Do NOT speculate on case outcomes, tribunal decisions, or ruling details. Do NOT repeat party names or company names from the title — refer to the case generically (e.g. "a recent tribunal decision on…").
 - Never invent specific facts (dates, fines, company names not in the source). You may infer general employer obligations from the type of incident or change described.
 - If genuinely nothing is employer-relevant for the items provided (typically the last ~36 hours), respond ONLY with: No employer-relevant updates from this source in this batch.
 - For each relevant update use this exact format:
@@ -246,15 +248,16 @@ async function callClaude(prompt, tier) {
 function evaluateResponse(output, scenario) {
   const checks = [];
   let score = 0;
-  const maxScore = 5;
+  let maxScore = 0;
 
-  // 1. Skipped correctly?
   const wasSkipped =
     output.includes("No employer-relevant") ||
     output.includes("insufficient information") ||
     output.includes("cannot write") ||
     output.includes("titles and metadata");
 
+  // 1. Skip/produce check (always runs)
+  maxScore++;
   if (scenario.expected.shouldNotBeSkipped) {
     const ok = !wasSkipped;
     checks.push({ check: "Not skipped (content produced)", pass: ok });
@@ -262,11 +265,12 @@ function evaluateResponse(output, scenario) {
   } else {
     const ok = wasSkipped;
     checks.push({ check: "Correctly skipped (noise test)", pass: ok });
-    if (ok) score += 2; // worth double — noise detection is critical
+    if (ok) score++;
   }
 
-  // 2. Importance level correct?
+  // 2. Importance level (only if expected)
   if (scenario.expected.importance.length > 0) {
+    maxScore++;
     const importanceMatch = scenario.expected.importance.some((lvl) =>
       output.includes(`Importance: ${lvl}`)
     );
@@ -277,8 +281,9 @@ function evaluateResponse(output, scenario) {
     if (importanceMatch) score++;
   }
 
-  // 3. mustContain strings present?
+  // 3. mustContain (only if expected)
   if (scenario.expected.mustContain.length > 0) {
+    maxScore++;
     const allPresent = scenario.expected.mustContain.every((s) =>
       output.toLowerCase().includes(s.toLowerCase())
     );
@@ -289,8 +294,9 @@ function evaluateResponse(output, scenario) {
     if (allPresent) score++;
   }
 
-  // 4. Hallucination check — mustNotContain strings absent?
+  // 4. Hallucination check (only if expected)
   if (scenario.expected.mustNotContain.length > 0) {
+    maxScore++;
     const nonePresent = scenario.expected.mustNotContain.every(
       (s) => !output.toLowerCase().includes(s.toLowerCase())
     );
@@ -301,7 +307,8 @@ function evaluateResponse(output, scenario) {
     if (nonePresent) score++;
   }
 
-  // 5. Format check — has correct structure?
+  // 5. Format check (always runs)
+  maxScore++;
   const hasFormat =
     wasSkipped ||
     (output.includes("What changed:") &&
@@ -311,8 +318,8 @@ function evaluateResponse(output, scenario) {
   checks.push({ check: "Correct output format", pass: hasFormat });
   if (hasFormat) score++;
 
-  const grade =
-    score >= maxScore ? "PASS" : score >= Math.ceil(maxScore * 0.6) ? "PARTIAL" : "FAIL";
+  const pct = maxScore > 0 ? score / maxScore : 0;
+  const grade = pct >= 1.0 ? "PASS" : pct >= 0.6 ? "PARTIAL" : "FAIL";
 
   return { score, maxScore, grade, checks };
 }
