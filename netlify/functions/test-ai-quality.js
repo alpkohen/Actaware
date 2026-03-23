@@ -6,10 +6,10 @@
  * each response for correctness, hallucination risk, and edge-case handling.
  *
  * Invoke: GET /.netlify/functions/test-ai-quality
- * Optional: ?scenario=1  (run a single scenario by number 1–8)
+ * Optional: ?scenario=1  (run a single scenario by number 1–23)
  * Optional: ?tier=professional  (test with professional digest tier)
  *
- * Cost: ~8 Claude Haiku calls (~$0.002 total). No emails sent, no DB writes.
+ * Cost: ~23 Claude Haiku calls (~$0.006 total). No emails sent, no DB writes.
  */
 
 const TEST_SCENARIOS = [
@@ -184,7 +184,354 @@ const TEST_SCENARIOS = [
       importance: [],
       mustContain: ["No employer-relevant"],
       mustNotContain: [],
-      shouldNotBeSkipped: false, // Claude SHOULD skip/return no-content
+      shouldNotBeSkipped: false,
+    },
+  },
+  {
+    id: 9,
+    label: "Fire & Rehire — ERA 2025 s.27 tribunal",
+    description: "Yeni mevzuat kovuşturması: rakamlar (£85k, 42 workers) doğru aktarılmalı",
+    source: "Employment Tribunal — ERA 2025 Case Decisions",
+    items: [
+      {
+        title: "Employer ordered to pay £85,000 after dismissing and re-engaging staff on lower terms",
+        published: "19 March 2026",
+        summary:
+          "An Employment Tribunal ruled against a logistics company that dismissed 42 warehouse workers and re-engaged them on contracts with reduced overtime rates and removed shift premiums. The Tribunal found the employer failed to follow the new statutory requirements under ERA 2025 s.27.",
+        link: "https://www.gov.uk/employment-tribunal-decisions/logistics-co-fire-rehire",
+      },
+    ],
+    expected: {
+      importance: ["HIGH", "CRITICAL"],
+      mustContain: ["85,000", "fire and rehire"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 10,
+    label: "Paternity Leave — day-one right in force",
+    description: "Yeni hak: day-one ve 26-week removed doğru aktarılmalı",
+    source: "GOV.UK — Employment Rights Act 2025",
+    items: [
+      {
+        title: "Paternity leave and pay: day-one right now in force",
+        published: "18 March 2026",
+        summary:
+          "From today, all eligible employees have the right to statutory paternity leave and pay from their first day of employment. The previous 26-week qualifying period has been removed under the Employment Rights Act 2025.",
+        link: "https://www.gov.uk/government/news/paternity-leave-day-one",
+      },
+    ],
+    expected: {
+      importance: ["HIGH", "CRITICAL"],
+      mustContain: ["day one", "paternity"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 11,
+    label: "Collective Redundancy — protective award",
+    description: "Yasal eşikler doğru (150, 45 gün, 90 gün) aktarılmalı",
+    source: "Employment Tribunal — ERA 2025 Case Decisions",
+    items: [
+      {
+        title: "Retailer faces protective award after failing to consult on 150 redundancies",
+        published: "17 March 2026",
+        summary:
+          "A high street retailer has been ordered to pay a protective award of 90 days' pay per affected employee after it failed to notify the Secretary of State and begin collective consultation at least 45 days before the first dismissal, as required when proposing 100 or more redundancies at one establishment.",
+        link: "https://www.gov.uk/employment-tribunal-decisions/retailer-redundancy",
+      },
+    ],
+    expected: {
+      importance: ["HIGH", "CRITICAL"],
+      mustContain: ["90 days", "45"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 12,
+    label: "Pension Auto-Enrolment Thresholds — dry HMRC",
+    description: "Rakamlar (£10,000, £6,240, £50,270) bire bir doğru aktarılmalı",
+    source: "GOV.UK — HMRC Employer Guidance",
+    items: [
+      {
+        title: "Automatic enrolment earnings trigger and qualifying earnings band updated for 2026/27",
+        published: "15 March 2026",
+        summary:
+          "The earnings trigger for automatic enrolment remains at £10,000 per annum for 2026/27. The qualifying earnings band is £6,240 to £50,270. Employers must continue to assess and re-enrol eligible jobholders.",
+        link: "https://www.gov.uk/government/publications/auto-enrolment-thresholds",
+      },
+    ],
+    expected: {
+      importance: ["MEDIUM", "HIGH"],
+      mustContain: ["10,000", "50,270"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 13,
+    label: "TUPE Amendment — small transfer exemption",
+    description: "Eşik rakamları (50, 10) doğru, kuru dil sade çevrilmiş olmalı",
+    source: "Legislation.gov.uk — New Statutory Instruments (ERA 2025)",
+    items: [
+      {
+        title: "The Transfer of Undertakings (Protection of Employment) (Amendment) Regulations 2026",
+        published: "14 March 2026",
+        summary:
+          "These regulations amend TUPE 2006 to clarify the information and consultation requirements where the transferee has fewer than 50 employees and the transfer involves fewer than 10 employees. Direct consultation with affected employees is now permitted without requiring election of employee representatives.",
+        link: "https://www.legislation.gov.uk/uksi/2026/301/contents/made",
+      },
+    ],
+    expected: {
+      importance: ["HIGH", "MEDIUM"],
+      mustContain: ["TUPE", "50"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 14,
+    label: "Whistleblower Protection — EMPTY CONTENT",
+    description: "Boş content: genel bilgi verebilir ama speculation + isim uydurmamalı",
+    source: "GOV.UK — Employment Rights Act 2025",
+    items: [
+      {
+        title: "Employment Rights Act 2025 strengthens protection for whistleblowers making protected disclosures",
+        published: "13 March 2026",
+        summary: "",
+        link: "https://www.gov.uk/government/news/whistleblower-protection-era-2025",
+      },
+    ],
+    expected: {
+      importance: ["HIGH", "MEDIUM"],
+      mustContain: ["whistleblow"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 15,
+    label: "Mixed Feed — 2 relevant + 1 noise",
+    description: "SSP ve SMP alınmalı, seasonal workers NI campaign atlanmalı",
+    source: "GOV.UK — Statutory Pay (SSP/SMP/SPP)",
+    items: [
+      {
+        title: "SSP rate increases to £118.75 per week from 6 April 2026",
+        published: "17 March 2026",
+        summary:
+          "The weekly rate of Statutory Sick Pay increases from £116.75 to £118.75 from 6 April 2026. Employers must update payroll systems accordingly.",
+        link: "https://www.gov.uk/government/news/ssp-rate-2026",
+      },
+      {
+        title: "Government launches campaign encouraging seasonal workers to register for NI",
+        published: "16 March 2026",
+        summary:
+          "A new awareness campaign encourages seasonal workers arriving in the UK to register for a National Insurance number before starting work.",
+        link: "https://www.gov.uk/government/news/seasonal-workers-ni",
+      },
+      {
+        title: "SMP weekly rate rises to £187.18 from April 2026",
+        published: "17 March 2026",
+        summary:
+          "Statutory Maternity Pay standard rate will increase from £184.03 to £187.18 per week from 6 April 2026.",
+        link: "https://www.gov.uk/government/news/smp-rate-2026",
+      },
+    ],
+    expected: {
+      importance: ["HIGH", "MEDIUM"],
+      mustContain: ["118.75", "187.18"],
+      mustNotContain: ["seasonal worker"],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 16,
+    label: "Stale Content — 6 months old",
+    description: "Eski tarihli haber: Claude tarih doğru aktarmalı, normal alert üretmeli",
+    source: "GOV.UK — HMRC Employer Guidance",
+    items: [
+      {
+        title: "Holiday pay calculation guidance updated",
+        published: "15 September 2025",
+        summary:
+          "HMRC has updated guidance on calculating holiday pay for irregular hours and part-year workers following the Working Time (Amendment) Regulations 2023.",
+        link: "https://www.gov.uk/guidance/holiday-pay-calculation",
+      },
+    ],
+    expected: {
+      importance: ["MEDIUM", "HIGH"],
+      mustContain: ["holiday pay", "September 2025"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 17,
+    label: "Agency Worker Rights — ERA 2025 day-one equal pay",
+    description: "Day-one ve 12-week removed doğru, deadline 6 April aktarılmalı",
+    source: "GOV.UK — Employment Rights Act 2025",
+    items: [
+      {
+        title: "New rights for agency workers under Employment Rights Act 2025",
+        published: "16 March 2026",
+        summary:
+          "Agency workers will now be entitled to the same pay as permanent employees from their first day of assignment, replacing the previous 12-week qualifying period under the Agency Workers Regulations 2010. The change takes effect on 6 April 2026.",
+        link: "https://www.gov.uk/government/news/agency-worker-rights-2026",
+      },
+    ],
+    expected: {
+      importance: ["HIGH", "CRITICAL"],
+      mustContain: ["agency", "6 April"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 18,
+    label: "Bereavement Leave — new statutory right",
+    description: "one week, unpaid, day one, 6 April doğru aktarılmalı",
+    source: "GOV.UK — Employment Rights Act 2025",
+    items: [
+      {
+        title: "Unpaid bereavement leave: new right from April 2026",
+        published: "15 March 2026",
+        summary:
+          "A new statutory right to one week of unpaid bereavement leave comes into force on 6 April 2026 for all employees from day one of employment. The right applies regardless of the relationship to the deceased.",
+        link: "https://www.gov.uk/government/news/bereavement-leave-2026",
+      },
+    ],
+    expected: {
+      importance: ["HIGH", "MEDIUM"],
+      mustContain: ["bereavement", "one week"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 19,
+    label: "PURE NOISE — 3 completely irrelevant items",
+    description: "Hydrogen plant, space grant, diplomacy — hepsi atlanmalı",
+    source: "GOV.UK — DBT Employer News",
+    items: [
+      {
+        title: "Prime Minister visits new hydrogen plant in Wales",
+        published: "18 March 2026",
+        summary:
+          "The PM toured a new green hydrogen facility as part of the government's net zero strategy, calling it \"a beacon for British innovation.\"",
+        link: "https://www.gov.uk/government/news/pm-hydrogen-plant",
+      },
+      {
+        title: "UK space agency awards £5m grant for satellite monitoring",
+        published: "17 March 2026",
+        summary:
+          "The UK Space Agency has announced new funding for satellite-based environmental monitoring projects.",
+        link: "https://www.gov.uk/government/news/space-agency-grant",
+      },
+      {
+        title: "Foreign Secretary meets Japanese counterpart in Tokyo",
+        published: "16 March 2026",
+        summary:
+          "Bilateral discussions focused on trade, security cooperation, and cultural exchange.",
+        link: "https://www.gov.uk/government/news/foreign-secretary-tokyo",
+      },
+    ],
+    expected: {
+      importance: [],
+      mustContain: ["No employer-relevant"],
+      mustNotContain: [],
+      shouldNotBeSkipped: false,
+    },
+  },
+  {
+    id: 20,
+    label: "Equal Pay Audit — discrimination tribunal",
+    description: "£320,000 doğru, equal pay audit aksiyonu pratik olmalı",
+    source: "Employment Tribunal — ERA 2025 Case Decisions",
+    items: [
+      {
+        title: "Company ordered to conduct equal pay audit after losing discrimination claim",
+        published: "14 March 2026",
+        summary:
+          "An Employment Tribunal has ordered a financial services firm to carry out a full equal pay audit covering all roles after finding systemic pay disparities between male and female employees performing equivalent work. The employer was also ordered to pay compensation totalling £320,000.",
+        link: "https://www.gov.uk/employment-tribunal-decisions/equal-pay-audit",
+      },
+    ],
+    expected: {
+      importance: ["HIGH", "CRITICAL"],
+      mustContain: ["320,000", "equal pay"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 21,
+    label: "Duplicate-Adjacent — same topic from 2 sources",
+    description: "2 NMW haberi: çelişki olmamalı, rakamlar tutarlı",
+    source: "GOV.UK — National Minimum Wage Updates",
+    items: [
+      {
+        title: "National Minimum Wage rates from April 2026 confirmed",
+        published: "18 March 2026",
+        summary: "NLW for 21+ rises to £12.85/hour from 1 April 2026.",
+        link: "https://www.gov.uk/government/news/nmw-confirmed-2026",
+      },
+      {
+        title: "Employers reminded to update pay rates ahead of April 2026 changes",
+        published: "18 March 2026",
+        summary:
+          "HMRC is reminding employers that the National Living Wage and NMW rates change from 1 April 2026 and payroll must be updated before the first April pay date.",
+        link: "https://www.gov.uk/government/news/hmrc-pay-rates-reminder",
+      },
+    ],
+    expected: {
+      importance: ["HIGH", "CRITICAL"],
+      mustContain: ["12.85", "April"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 22,
+    label: "Right to Disconnect — consultation (not law yet)",
+    description: "Henüz yasa değil: consultation olduğu belirtilmeli, 'yürürlükte' DENMEMELİ",
+    source: "GOV.UK — Employment Consultations (Make Work Pay)",
+    items: [
+      {
+        title: "Government publishes consultation on right to disconnect for employees",
+        published: "12 March 2026",
+        summary:
+          "The Department for Business and Trade has launched a 12-week public consultation on proposals to introduce a statutory right to disconnect outside working hours. The consultation closes on 4 June 2026. No legislation has been introduced yet.",
+        link: "https://www.gov.uk/government/consultations/right-to-disconnect",
+      },
+    ],
+    expected: {
+      importance: ["MEDIUM", "HIGH"],
+      mustContain: ["consultation"],
+      mustNotContain: ["now in force", "comes into force", "must comply"],
+      shouldNotBeSkipped: true,
+    },
+  },
+  {
+    id: 23,
+    label: "Extremely Short — single sentence + title",
+    description: "Çok kısa kaynak: makul H&S aksiyonu üretmeli, uydurma detay eklememeli",
+    source: "HSE — Health & Safety at Work",
+    items: [
+      {
+        title: "HSE issues safety alert on lithium-ion battery storage in workplaces",
+        published: "19 March 2026",
+        summary: "Employers are advised to review storage arrangements.",
+        link: "https://press.hse.gov.uk/2026/03/19/lithium-battery-alert/",
+      },
+    ],
+    expected: {
+      importance: ["MEDIUM", "HIGH"],
+      mustContain: ["lithium", "battery"],
+      mustNotContain: [],
+      shouldNotBeSkipped: true,
     },
   },
 ];
@@ -345,7 +692,7 @@ exports.handler = async function (event) {
     return {
       statusCode: 400,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: `Scenario ${singleScenario} not found. Valid IDs: 1–8` }),
+      body: JSON.stringify({ error: `Scenario ${singleScenario} not found. Valid IDs: 1–23` }),
     };
   }
 
