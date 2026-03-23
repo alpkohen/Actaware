@@ -25,3 +25,7 @@
 # Every 2 hours: CRITICAL-only supplemental emails for Professional / Agency (~24h window).
 [functions."send-critical-alerts-background"]
   schedule = "15 */2 * * *"
+
+# Extended timeout for AI quality test (23 Claude calls ~90s total).
+[functions."test-ai-quality"]
+  timeout = 300
