@@ -59,6 +59,7 @@ SQL Editor’da çalıştırın:
 1. **Authentication → Providers → Email** — Magic link / OTP açık olsun.
 2. **Authentication → URL configuration** — **Site URL** üretim kökünüz (ör. `https://act-aware.netlify.app`).
 3. **Redirect URLs** — `https://…/dashboard.html` ve yerelde test için `http://localhost:8888/dashboard.html` (veya kullandığınız Netlify CLI portu).
+4. **E-posta görünümü (ActAware markası)** — Supabase varsayılanı “Supabase Auth” gönderenidir. **HTML şablonları** ve isteğe bağlı **SMTP (Resend)** için: `docs/supabase-auth-email-templates.md`.
 
 ### Supabase
 

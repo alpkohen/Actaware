@@ -48,7 +48,7 @@ const RSS_FEEDS = [
   },
   {
     name: "Legislation.gov.uk — New Statutory Instruments (ERA 2025)",
-    url: "https://www.legislation.gov.uk/uksi/data.feed?sort=published",
+    url: "https://www.legislation.gov.uk/new/uksi/data.feed",
     priority: "critical",
     filterKeywords: [
       "employment",
@@ -84,6 +84,11 @@ const RSS_FEEDS = [
     name: "Pensions Regulator — Employer Auto-Enrolment",
     url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=the-pensions-regulator&keywords=employer+auto-enrolment",
     priority: "medium",
+  },
+  {
+    name: "ACAS — Employment Relations & Guidance",
+    url: "https://www.gov.uk/search/all.atom?organisations%5B%5D=acas",
+    priority: "high",
   },
   {
     name: "HSE — Health & Safety at Work",
