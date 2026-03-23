@@ -31,7 +31,7 @@
     .alert-title { font-size: 15px; font-weight: 600; color: #111; }
     .alert-date { font-size: 12px; color: #9ca3af; }
     .alert-source { font-size: 11px; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .alert-summary { font-size: 13px; color: #4b5563; line-height: 1.65; white-space: pre-wrap; }
+    .alert-summary { font-size: 13px; color: #4b5563; line-height: 1.65; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
     .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px; text-transform: uppercase; }
     .badge-high { background: #fef3c7; color: #92400e; }
     .badge-critical { background: #fee2e2; color: #991b1b; }
@@ -84,6 +84,18 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  /** Safe subset of markdown: **bold** only; everything else escaped. Preserves newlines (pre-wrap). */
+  function formatAlertSummaryHtml(raw) {
+    const text = raw == null ? "" : String(raw);
+    const parts = text.split(/\*\*/);
+    return parts
+      .map((segment, i) => {
+        const esc = escapeHtml(segment);
+        return i % 2 === 1 ? `<strong>${esc}</strong>` : esc;
+      })
+      .join("");
   }
 
   let supabase = null;
@@ -139,7 +151,7 @@
           </div>
           <div class="alert-source">${escapeHtml(alert.alert_source || "GOV.UK")}</div>
           <span class="badge ${badgeClass}">${escapeHtml(alert.importance || "high")}</span>
-          <div class="alert-summary" style="margin-top:10px;">${escapeHtml(alert.alert_summary)}</div>
+          <div class="alert-summary" style="margin-top:10px;">${formatAlertSummaryHtml(alert.alert_summary)}</div>
         </div>
       `;
     }).join("");
