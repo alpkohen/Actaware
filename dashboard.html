@@ -36,10 +36,15 @@
     .badge-high { background: #fef3c7; color: #92400e; }
     .badge-critical { background: #fee2e2; color: #991b1b; }
     .badge-medium { background: #e0f2fe; color: #0369a1; }
-    .empty { text-align: center; color: #9ca3af; padding: 60px 0; font-size: 14px; }
+    .empty { text-align: center; color: #9ca3af; padding: 48px 16px; font-size: 14px; line-height: 1.65; max-width: 520px; margin: 0 auto; }
+    .empty strong { color: #4b5563; }
     #login-section { display: block; }
     #dashboard-section { display: none; }
     .archive-banner { font-size: 12px; color: #6b7280; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; line-height: 1.5; }
+    .archive-banner.shared-info { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+    .alert-card.shared { border-left: 3px solid #6366f1; }
+    .badge-shared { background: #e0e7ff; color: #3730a3; }
+    .alert-card.shared .alert-summary { max-height: 420px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -113,6 +118,14 @@
 
   function setArchiveBanner(meta) {
     const b = el("archive-banner");
+    if (meta?.showingSharedBriefings) {
+      b.style.display = "block";
+      b.className = "archive-banner shared-info";
+      b.textContent =
+        "Below is the same standard daily digest we produce for subscribers. It fills this page until your own emailed alerts are stored (after the next 08:00 UK run). This is not legal advice — always check primary sources.";
+      return;
+    }
+    b.className = "archive-banner";
     if (!meta || meta.archiveFullHistory) {
       b.style.display = "none";
       b.textContent = "";
@@ -123,38 +136,54 @@
       `Your plan shows alerts from the last ${meta.archiveDays} days. Upgrade to Professional for full history.`;
   }
 
-  function renderAlerts(alerts, meta) {
+  function importanceBadgeClass(importance) {
+    if (importance === "critical") return "badge-critical";
+    if (importance === "high") return "badge-high";
+    return "badge-medium";
+  }
+
+  function oneAlertCard(alert, isShared) {
+    const date = new Date(alert.sent_at).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    const badgeClass = isShared ? "badge-shared" : importanceBadgeClass(alert.importance);
+    const badgeLabel = isShared ? "Daily briefing" : escapeHtml(alert.importance || "high");
+    const cardClass = isShared ? "alert-card shared" : "alert-card";
+    return `
+      <div class="${cardClass}">
+        <div class="alert-header">
+          <div class="alert-title">${escapeHtml(alert.alert_title)}</div>
+          <div class="alert-date">${escapeHtml(date)}</div>
+        </div>
+        <div class="alert-source">${escapeHtml(alert.alert_source || "GOV.UK")}</div>
+        <span class="badge ${badgeClass}">${badgeLabel}</span>
+        <div class="alert-summary" style="margin-top:10px;">${formatAlertSummaryHtml(alert.alert_summary)}</div>
+      </div>
+    `;
+  }
+
+  function renderAlerts(alerts, sharedBriefings, meta) {
     const list = el("alerts-list");
-    el("alert-count").textContent = `${alerts.length} alert${alerts.length !== 1 ? "s" : ""} shown`;
+    const shared = sharedBriefings || [];
     setArchiveBanner(meta);
-    if (alerts.length === 0) {
-      list.innerHTML = "<div class='empty'>No alerts found</div>";
+
+    if (meta?.showingSharedBriefings) {
+      const days = meta.archiveDays ?? 30;
+      el("alert-count").textContent = `${shared.length} recent briefing${shared.length !== 1 ? "s" : ""} — last ${days} days of monitoring (your personal inbox has no saved alerts yet)`;
+    } else {
+      el("alert-count").textContent = `${alerts.length} alert${alerts.length !== 1 ? "s" : ""} shown`;
+    }
+
+    if (alerts.length === 0 && shared.length === 0) {
+      list.innerHTML = `<div class='empty'><strong>No alerts found.</strong><br><br>If you just signed up or started a trial, your first digest is sent around <strong>08:00 UK time</strong> — check back after that, and use the <strong>same email</strong> you used to subscribe.<br><br>No matches for your search? Try different keywords or clear the search box.</div>`;
       return;
     }
-    list.innerHTML = alerts.map((alert) => {
-      const date = new Date(alert.sent_at).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-      const badgeClass =
-        alert.importance === "critical"
-          ? "badge-critical"
-          : alert.importance === "high"
-            ? "badge-high"
-            : "badge-medium";
-      return `
-        <div class="alert-card">
-          <div class="alert-header">
-            <div class="alert-title">${escapeHtml(alert.alert_title)}</div>
-            <div class="alert-date">${escapeHtml(date)}</div>
-          </div>
-          <div class="alert-source">${escapeHtml(alert.alert_source || "GOV.UK")}</div>
-          <span class="badge ${badgeClass}">${escapeHtml(alert.importance || "high")}</span>
-          <div class="alert-summary" style="margin-top:10px;">${formatAlertSummaryHtml(alert.alert_summary)}</div>
-        </div>
-      `;
-    }).join("");
+
+    const parts = alerts.map((a) => oneAlertCard(a, false));
+    for (const s of shared) parts.push(oneAlertCard(s, true));
+    list.innerHTML = parts.join("");
   }
 
   async function fetchAlerts(accessToken, search) {
@@ -191,7 +220,7 @@
     el("login-section").style.display = "none";
     el("dashboard-section").style.display = "block";
     showLoginMsg("", false);
-    renderAlerts(allAlerts, data.meta);
+    renderAlerts(allAlerts, data.sharedBriefings || [], data.meta);
   }
 
   function showLoginForm() {
@@ -285,7 +314,7 @@
       const search = el("search-input").value.trim();
       try {
         const data = await fetchAlerts(session.access_token, search);
-        renderAlerts(data.alerts || [], data.meta);
+        renderAlerts(data.alerts || [], data.sharedBriefings || [], data.meta);
       } catch (e) {
         el("alerts-list").innerHTML = `<div class='empty'>${escapeHtml(e.message)}</div>`;
       }

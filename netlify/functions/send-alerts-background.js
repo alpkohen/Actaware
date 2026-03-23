@@ -589,6 +589,58 @@ function getLondonHour() {
   return parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
 }
 
+/** YYYY-MM-DD in Europe/London (for digest_snapshots.unique digest_date). */
+function getLondonDateString(d = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+/**
+ * Persists the standard-tier digest so dashboard can show last-30-days history
+ * when a user has no sent_alerts rows yet (e.g. new signup same day).
+ */
+async function upsertDigestSnapshot({
+  runId,
+  shortDate,
+  sectionsStandard,
+  testRun,
+  forceQuietDayPreview,
+}) {
+  if (testRun || forceQuietDayPreview) return;
+  const isQuiet = !sectionsStandard || sectionsStandard.length === 0;
+  const title = isQuiet
+    ? `Daily check-in — no new updates (${shortDate})`
+    : `Daily UK Employer Compliance — ${shortDate}`;
+  const summary = isQuiet
+    ? "No employer-relevant changes detected across monitored official UK sources in the last ~36 hours."
+    : sectionsStandard.map((s) => `[${s.source}] ${s.content}`).join("\n\n");
+  const sources = isQuiet ? "system — quiet day" : sectionsStandard.map((s) => s.source).join(", ");
+  const importance = isQuiet
+    ? "medium"
+    : sectionsStandard.some((s) => s.priority === "critical")
+      ? "critical"
+      : "high";
+  const digestDate = getLondonDateString();
+
+  const { error } = await supabase.from("digest_snapshots").upsert(
+    {
+      digest_date: digestDate,
+      run_id: runId,
+      kind: isQuiet ? "quiet_day" : "digest",
+      alert_title: title,
+      alert_summary: summary.slice(0, 120000),
+      alert_source: sources,
+      importance,
+    },
+    { onConflict: "digest_date" }
+  );
+  if (error) console.error(`digest_snapshots upsert failed: ${error.message}`);
+}
+
 exports.handler = async function () {
   const testRun = process.env.SEND_ALERTS_TEST_RUN === "true";
 
@@ -656,6 +708,16 @@ exports.handler = async function () {
     const r = await buildDigestSections(runId, cutoff, "professional", forceQuietDayPreview);
     sectionsProfessional = r.alertSections;
     feedOutcomes.push(...r.feedOutcomes);
+  }
+
+  if (needStandardDigest) {
+    await upsertDigestSnapshot({
+      runId,
+      shortDate,
+      sectionsStandard,
+      testRun,
+      forceQuietDayPreview,
+    });
   }
 
   if (forceQuietDayPreview) {

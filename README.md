@@ -91,6 +91,8 @@ Zamanlama: `netlify.toml` içinde `send-critical-alerts-background` → **`15 */
    - `supabase/migrations/20260322120000_users_profile_and_trial.sql` *(ücretsiz deneme + profil kolonları)*
    - `supabase/migrations/20260323120000_subscriptions_plan_check_trial.sql` *(plan kolonunda `trial` izni — trial kaydı hatası alıyorsan)*
    - `supabase/migrations/20260324120000_subscriptions_seat_limit.sql` *(koltuk limiti)*
+   - `supabase/migrations/20260325120000_subscriptions_unique_user_id.sql` *(duplicate temizliği + `user_id` UNIQUE)*
+   - `supabase/migrations/20260326120000_digest_snapshots.sql` *(günlük standart özet kopyası — `dashboard.html` boşken son 30 gün)*
 4. **Table Editor**’da tabloların oluştuğunu doğrulayın.
 
 > Tablolar yoksa fonksiyon çalışırken insert hataları log’a düşer; mail akışı diğer feed’lerle devam edebilir ama denetim/hata kaydı eksik kalır.

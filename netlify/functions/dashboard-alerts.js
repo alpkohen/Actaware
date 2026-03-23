@@ -15,6 +15,45 @@ function fullArchiveEligible(plan, status) {
   return plan === "professional" || plan === "agency";
 }
 
+/** When sent_alerts is empty, show recent rows from digest_snapshots (same 30-day window). */
+async function fetchSharedBriefings(supabaseAdmin, searchTrim) {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - ARCHIVE_DAYS_LIMITED);
+  const sinceStr = since.toISOString().slice(0, 10);
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const { data: snaps, error } = await supabaseAdmin
+    .from("digest_snapshots")
+    .select("*")
+    .gte("digest_date", sinceStr)
+    .lte("digest_date", todayStr)
+    .order("digest_date", { ascending: false })
+    .limit(60);
+
+  if (error) {
+    console.warn("dashboard-alerts digest_snapshots:", error.message);
+    return [];
+  }
+  let rows = snaps || [];
+  const q = String(searchTrim || "").trim().toLowerCase();
+  if (q) {
+    rows = rows.filter(
+      (row) =>
+        String(row.alert_title || "").toLowerCase().includes(q) ||
+        String(row.alert_summary || "").toLowerCase().includes(q)
+    );
+  }
+  return rows.map((row) => ({
+    id: `snapshot-${row.id}`,
+    alert_title: row.alert_title,
+    alert_summary: row.alert_summary,
+    alert_source: row.alert_source,
+    importance: row.importance,
+    sent_at: row.created_at || `${row.digest_date}T12:00:00.000Z`,
+    _source: "shared_briefing",
+  }));
+}
+
 exports.handler = async function (event) {
   const h = (extra = {}) => makeCorsHeaders(event, extra);
 
@@ -112,16 +151,37 @@ exports.handler = async function (event) {
     const { data: alerts, error: qErr } = await query;
     if (qErr) throw qErr;
 
+    const personal = alerts || [];
+    const searchTrim = search && String(search).trim();
+
+    let sharedBriefings = [];
+    if (personal.length === 0) {
+      let allowSharedFallback = true;
+      if (searchTrim) {
+        const { count, error: cErr } = await supabaseAdmin
+          .from("sent_alerts")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", dbUser.id);
+        if (cErr) throw cErr;
+        if ((count ?? 0) > 0) allowSharedFallback = false;
+      }
+      if (allowSharedFallback) {
+        sharedBriefings = await fetchSharedBriefings(supabaseAdmin, searchTrim);
+      }
+    }
+
     return {
       statusCode: 200,
       headers: h({ "Content-Type": "application/json" }),
       body: JSON.stringify({
-        alerts: alerts || [],
+        alerts: personal,
+        sharedBriefings,
         meta: {
           plan,
           subscriptionStatus: status,
           archiveFullHistory: unlimited,
           archiveDays: unlimited ? null : ARCHIVE_DAYS_LIMITED,
+          showingSharedBriefings: personal.length === 0 && sharedBriefings.length > 0,
         },
       }),
     };
