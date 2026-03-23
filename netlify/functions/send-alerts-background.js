@@ -559,7 +559,7 @@ function buildQuietDayEmailHTML(companyName, dateLabel) {
           Hi ${companyName ? `<strong>${companyName}</strong>` : "there"},
         </p>
         <p style="margin:16px 0 0;font-size:15px;color:#374151;line-height:1.65;">
-          We scanned our <strong>12 monitored official UK sources</strong> for items published in the last ~36 hours (covering “yesterday” across time zones). <strong>Nothing new surfaced that required an employer-facing compliance alert today.</strong>
+          We scanned our <strong>14 monitored official UK sources</strong> for items published in the last ~36 hours (covering “yesterday” across time zones). <strong>Nothing new surfaced that required an employer-facing compliance alert today.</strong>
         </p>
         <p style="margin:16px 0 0;font-size:14px;color:#6b7280;line-height:1.65;">
           That does not mean nothing happened in the wider world — only that, within the official feeds we track, there was no material employer-relevant change worth a full briefing. We’ll be back tomorrow at the usual time if anything moves.

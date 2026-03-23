@@ -37,7 +37,7 @@ SQL Editor’da çalıştırın:
 - Fiyat kartları **`register.html?plan=starter`**, **`?plan=professional`**, **`?plan=agency`** adresine gider.
 - **`register-and-checkout`** — Profili Supabase `users` tablosuna yazar; **Starter / Professional** için Stripe Checkout URL döner; **Agency** için `mailto:` ile dolu gövde döner (önce kayıt, sonra e-posta istemcisi).
 - Fiyat ID’leri `register-and-checkout.js` içinde tanımlı (`PLAN_PRICE_IDS`); Stripe’da değişirsen burayı güncelle.
-- Eski **`create-checkout-session`** doğrudan siteden artık kullanılmıyor; istersen başka entegrasyonlar için bırakılabilir.
+- Eski `create-checkout-session` silindi; tüm checkout akışı `register-and-checkout` üzerinden.
 
 ## Professional / Agency — ürün vaadi vs kod
 
@@ -173,5 +173,6 @@ Bu sınırlar dışında, fetch/parse hatası olursa kayıt **`feed_fetch_errors
 - `netlify/functions/register-and-checkout.js` — ücretli plan formu → Stripe veya Agency mailto
 - `netlify/functions/send-critical-alerts-background.js` — Professional/Agency CRITICAL pulse (~24 saat)
 - `netlify/functions/lib/employer-feeds.js` — paylaşılan RSS listesi + fetch/parse
-- `netlify/functions/create-checkout-session.js`, `stripe-webhook.js` — abonelik (checkout esas olarak `register-and-checkout` üzerinden)
+- `netlify/functions/stripe-webhook.js` — Stripe webhook handler
+- `netlify/functions/register-and-checkout.js` — kayıt + checkout akışı
 - `netlify/functions/dashboard-alerts.js` — alert geçmişi

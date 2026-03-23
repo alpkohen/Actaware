@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const { makeCorsHeaders, preflight } = require("./lib/cors");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -15,15 +16,6 @@ const COMPANY_SIZES = new Set([
   "1000+",
 ]);
 
-function corsHeaders() {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-}
-
 function isValidEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(s || "").trim());
 }
@@ -35,9 +27,9 @@ function cleanStr(v, max) {
 }
 
 exports.handler = async function (event) {
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: corsHeaders(), body: "" };
-  }
+  const corsHeaders = (extra = {}) => makeCorsHeaders(event, { "Content-Type": "application/json", ...extra });
+
+  if (event.httpMethod === "OPTIONS") return preflight(event);
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ error: "Method not allowed" }) };
   }

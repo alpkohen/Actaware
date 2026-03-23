@@ -6,17 +6,9 @@
  *      URL or SITE_URL (optional, for Referer allowlist)
  */
 const Resend = require("resend").Resend;
+const { makeCorsHeaders, preflight } = require("./lib/cors");
 
 const DEFAULT_NOTIFY = "alpkohen67@gmail.com";
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json",
-  };
-}
 
 function escapeText(s) {
   return String(s ?? "")
@@ -46,9 +38,9 @@ function isAllowedRequest(event) {
 }
 
 exports.handler = async function (event) {
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: corsHeaders(), body: "" };
-  }
+  const corsHeaders = (extra = {}) => makeCorsHeaders(event, { "Content-Type": "application/json", ...extra });
+
+  if (event.httpMethod === "OPTIONS") return preflight(event);
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ error: "Method not allowed" }) };
   }

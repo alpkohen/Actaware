@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const { makeCorsHeaders, preflight } = require("./lib/cors");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -9,26 +10,17 @@ const ARCHIVE_DAYS_LIMITED = 30;
 const MAX_ALERTS_LIMITED = 100;
 const MAX_ALERTS_FULL = 500;
 
-function corsHeaders(extra = {}) {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    ...extra,
-  };
-}
-
 function fullArchiveEligible(plan, status) {
   if (status !== "active") return false;
   return plan === "professional" || plan === "agency";
 }
 
 exports.handler = async function (event) {
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: corsHeaders(), body: "" };
-  }
+  const h = (extra = {}) => makeCorsHeaders(event, extra);
+
+  if (event.httpMethod === "OPTIONS") return preflight(event);
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ error: "Method not allowed" }) };
+    return { statusCode: 405, headers: h(), body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
   const authHeader = event.headers.authorization || event.headers.Authorization || "";
@@ -36,7 +28,7 @@ exports.handler = async function (event) {
   if (!token) {
     return {
       statusCode: 401,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
+      headers: h({ "Content-Type": "application/json" }),
       body: JSON.stringify({ error: "Sign in required. Use the magic link on this page." }),
     };
   }
@@ -46,7 +38,7 @@ exports.handler = async function (event) {
   if (!url || !anon) {
     return {
       statusCode: 503,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
+      headers: h({ "Content-Type": "application/json" }),
       body: JSON.stringify({ error: "Server misconfigured (missing Supabase anon key)" }),
     };
   }
@@ -60,7 +52,7 @@ exports.handler = async function (event) {
   if (authErr || !authUser?.email) {
     return {
       statusCode: 401,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
+      headers: h({ "Content-Type": "application/json" }),
       body: JSON.stringify({ error: "Invalid or expired session. Request a new sign-in link." }),
     };
   }
@@ -80,7 +72,7 @@ exports.handler = async function (event) {
     if (!dbUser) {
       return {
         statusCode: 404,
-        headers: { ...corsHeaders(), "Content-Type": "application/json" },
+        headers: h({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           error:
             "No ActAware account found for this email. Subscribe or start a trial with the same address you use to sign in.",
@@ -122,7 +114,7 @@ exports.handler = async function (event) {
 
     return {
       statusCode: 200,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
+      headers: h({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         alerts: alerts || [],
         meta: {
@@ -137,7 +129,7 @@ exports.handler = async function (event) {
     console.error("dashboard-alerts:", err.message);
     return {
       statusCode: 500,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
+      headers: h({ "Content-Type": "application/json" }),
       body: JSON.stringify({ error: "Something went wrong" }),
     };
   }

@@ -1,12 +1,13 @@
 const Stripe = require("stripe");
 const { createClient } = require("@supabase/supabase-js");
+const { makeCorsHeaders, preflight } = require("./lib/cors");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
 
-/** Must match Stripe Dashboard prices + create-checkout-session.js */
+/** Must match Stripe Dashboard prices */
 const PLAN_PRICE_IDS = {
   starter: "price_1TChtb1Xanrz03nuIzigt2x5",
   professional: "price_1TChu51Xanrz03numP5U6R8R",
@@ -22,15 +23,6 @@ const COMPANY_SIZES = new Set([
   "250-999",
   "1000+",
 ]);
-
-function corsHeaders() {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-}
 
 function isValidEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(s || "").trim());
@@ -78,9 +70,9 @@ async function saveUserProfile(emailNorm, fields) {
 }
 
 exports.handler = async function (event) {
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: corsHeaders(), body: "" };
-  }
+  const corsHeaders = (extra = {}) => makeCorsHeaders(event, { "Content-Type": "application/json", ...extra });
+
+  if (event.httpMethod === "OPTIONS") return preflight(event);
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ error: "Method not allowed" }) };
   }
