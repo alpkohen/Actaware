@@ -142,6 +142,70 @@
     .pro-filters .ff { display: flex; flex-direction: column; }
     .checklist-locked-note { font-size: 13px; color: #6b7280; background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 12px; line-height: 1.5; }
     .checklist-locked-note a { color: #1e3051; font-weight: 600; }
+    .milestone-row { display: flex; gap: 12px; align-items: flex-start; width: 100%; }
+    .milestone-actions {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e5e7eb;
+    }
+    .milestone-actions.muted { font-size: 12px; color: #6b7280; border-top: none; margin-top: 8px; padding-top: 0; }
+    .milestone-actions a, .milestone-actions button {
+      font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px;
+      text-decoration: none; cursor: pointer; font-family: inherit;
+    }
+    .milestone-actions a {
+      background: #fff; color: #1e3051; border: 1px solid #cbd5e1;
+    }
+    .milestone-actions a:hover { background: #f8fafc; }
+    .milestone-actions .btn-ics {
+      background: #0f172a; color: #fff; border: none;
+    }
+    .milestone-actions .btn-ics:hover { opacity: 0.92; }
+    .checklist-row {
+      border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; background: #fafafa;
+    }
+    .checklist-row-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; justify-content: space-between; }
+    .checklist-row-title { font-size: 13px; font-weight: 600; color: #111; flex: 1; min-width: 200px; line-height: 1.45; }
+    .checklist-row-meta { font-size: 12px; color: #6b7280; width: 100%; }
+    .btn-log-review {
+      font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px;
+      background: #C9922A; color: #0B1829; border: none; cursor: pointer; font-family: inherit;
+    }
+    .btn-log-review:hover { opacity: 0.92; }
+    .btn-log-review:disabled { opacity: 0.45; cursor: not-allowed; }
+    .checklist-history { margin-top: 8px; font-size: 12px; color: #4b5563; }
+    .checklist-history summary { cursor: pointer; font-weight: 600; color: #1e3051; }
+    .checklist-history ul { margin: 8px 0 0 18px; line-height: 1.5; }
+    .weekly-recap-item {
+      border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; background: #fff;
+    }
+    .weekly-recap-item .when { font-size: 13px; font-weight: 600; color: #111; }
+    .weekly-recap-item .preview { font-size: 12px; color: #6b7280; flex: 1; min-width: 200px; max-height: 2.6em; overflow: hidden; }
+    .btn-weekly-print {
+      font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px;
+      background: #1e3051; color: #fff; border: none; cursor: pointer; font-family: inherit;
+    }
+    .dash-modal[hidden] { display: none !important; }
+    .dash-modal {
+      position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+      padding: 24px; box-sizing: border-box;
+    }
+    .dash-modal-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.45); }
+    .dash-modal-card {
+      position: relative; background: #fff; border-radius: 12px; padding: 22px 24px; max-width: 440px; width: 100%;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+    }
+    .dash-modal-card h4 { margin: 0 0 8px; font-size: 17px; color: #111; }
+    .dash-modal-card textarea {
+      width: 100%; box-sizing: border-box; margin-top: 12px; padding: 10px 12px; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: 14px; font-family: inherit; resize: vertical; min-height: 100px;
+    }
+    .dash-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+    .dash-modal-actions button {
+      padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    #modal-review-cancel { background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; }
+    #modal-review-submit { background: #0f172a; color: #fff; border: none; }
   </style>
 </head>
 <body>
@@ -186,22 +250,28 @@
 
     <div class="dash-panel" id="panel-calendar">
       <h3>Compliance calendar</h3>
-      <p style="font-size:13px;color:#6b7280;margin:-6px 0 12px;line-height:1.5;">Key UK employer dates we’re tracking — add them to your own planning.</p>
+      <p style="font-size:13px;color:#6b7280;margin:-6px 0 12px;line-height:1.5;">Key UK employer dates we’re tracking. <strong>Professional &amp; Agency:</strong> add each date to Google Calendar or download an <code>.ics</code> file for Outlook / Apple Calendar.</p>
       <div class="milestone-list" id="milestone-list"></div>
     </div>
 
     <div class="dash-panel" id="panel-score">
-      <h3>Compliance score</h3>
-      <p style="font-size:13px;color:#6b7280;margin:-6px 0 12px;line-height:1.5;">Track practical readiness against common obligations. This is guidance only, not an audit.</p>
+      <h3>Compliance score &amp; review log</h3>
+      <p style="font-size:13px;color:#6b7280;margin:-6px 0 12px;line-height:1.5;">Log each area when you’ve reviewed it (optional notes for your audit trail). This is guidance only — not a legal audit.</p>
       <div class="score-bar-wrap">
         <div class="score-bar-bg"><div class="score-bar-fill" id="score-bar-fill" style="width:0%"></div></div>
         <div class="score-label" id="score-label">Loading…</div>
       </div>
       <div class="checklist-locked-note" id="checklist-locked" hidden>
-        <strong>Professional &amp; Agency</strong> — save your checklist progress here.
+        <strong>Professional &amp; Agency</strong> — log reviews with optional notes, export calendar events, and browse weekly recap PDFs here.
         <a href="/#pricing">View plans</a> or upgrade from your Account page.
       </div>
       <div id="checklist-body"></div>
+    </div>
+
+    <div class="dash-panel" id="panel-weekly" style="display:none;">
+      <h3>Weekly recap archive</h3>
+      <p style="font-size:13px;color:#6b7280;margin:-6px 0 12px;line-height:1.5;">Same recap we email on Fridays. Open or print to PDF (browser print → Save as PDF).</p>
+      <div id="weekly-recap-list"></div>
     </div>
 
     <div class="search-bar">
@@ -240,6 +310,20 @@
     <div id="alerts-list"></div>
   </div>
 </div>
+
+<div id="modal-review" class="dash-modal" hidden>
+  <div class="dash-modal-backdrop" data-close-modal></div>
+  <div class="dash-modal-card" role="dialog" aria-labelledby="modal-review-heading">
+    <h4 id="modal-review-heading">Log a review</h4>
+    <p id="modal-review-item-title" style="font-size:13px;color:#4b5563;margin:0;line-height:1.5;"></p>
+    <textarea id="modal-review-note" placeholder="Optional: e.g. handbook v3.2, reviewed with HR lead, follow-up before April…" maxlength="2000"></textarea>
+    <div class="dash-modal-actions">
+      <button type="button" id="modal-review-cancel">Cancel</button>
+      <button type="button" id="modal-review-submit">Save log entry</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -270,6 +354,11 @@
   let lastLoadedAuthUserId = null;
   let dashboardMeta = {};
   let dashboardCompliance = null;
+  /** @type {Record<string, string>} */
+  let milestoneIcsMap = {};
+  let reviewModalItemId = null;
+  /** @type {Array<{ periodEnding?: string, summaryText?: string, summaryHtml?: string }>} */
+  let weeklyRecapsCache = [];
 
   const el = (id) => document.getElementById(id);
 
@@ -301,8 +390,19 @@
     return data;
   }
 
-  function renderMilestones(milestones) {
+  async function fetchWeeklyRecaps(accessToken) {
+    const res = await fetch("/.netlify/functions/dashboard-weekly-recaps", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (res.status === 403) return { recaps: [] };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { recaps: [] };
+    return data;
+  }
+
+  function renderMilestones(milestones, calendarEnabled) {
     const ml = el("milestone-list");
+    milestoneIcsMap = {};
     if (!ml || !milestones?.length) {
       if (ml) ml.innerHTML = "<p style='font-size:13px;color:#9ca3af;'>No milestones loaded.</p>";
       return;
@@ -315,9 +415,51 @@
         const d = escapeHtml(m.date);
         const title = escapeHtml(m.title);
         const detail = escapeHtml(m.detail || "");
-        return `<div class="milestone-item ${urg}"><div class="milestone-date">${d}</div><div class="milestone-body"><strong>${title}</strong>${detail ? `<br>${detail}` : ""}</div></div>`;
+        const cal = m.calendar;
+        if (cal?.ics) milestoneIcsMap[m.id] = cal.ics;
+        const actions = calendarEnabled && cal?.googleUrl
+          ? `<div class="milestone-actions">
+          <a href="${escapeHtml(cal.googleUrl)}" target="_blank" rel="noopener noreferrer">Add to Google Calendar</a>
+          <button type="button" class="btn-ics" data-ics-id="${escapeHtml(m.id)}">Download .ics</button>
+        </div>`
+          : `<div class="milestone-actions muted">Add to calendar: <a href="/#pricing">upgrade to Professional</a></div>`;
+        return `<div class="milestone-item ${urg}">
+        <div class="milestone-row">
+          <div class="milestone-date">${d}</div>
+          <div class="milestone-body"><strong>${title}</strong>${detail ? `<br>${detail}` : ""}</div>
+        </div>${actions}</div>`;
       })
       .join("");
+
+    ml.querySelectorAll("[data-ics-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-ics-id");
+        const ics = milestoneIcsMap[id];
+        if (!ics) return;
+        const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `actaware-${id}.ics`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+    });
+  }
+
+  function formatReviewDate(iso) {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/London",
+      });
+    } catch {
+      return "—";
+    }
   }
 
   function renderChecklistUI(comp) {
@@ -329,7 +471,7 @@
     const pct = typeof comp.scorePercent === "number" ? comp.scorePercent : 0;
     if (fill) fill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
     if (label) {
-      label.textContent = `${comp.doneCount ?? 0} / ${comp.totalChecklistItems ?? 0} items complete (${pct}%)`;
+      label.textContent = `${comp.doneCount ?? 0} / ${comp.totalChecklistItems ?? 0} areas tracked — ${pct}% (reviews + any legacy ticks)`;
     }
     if (locked) locked.hidden = !!comp.checklistEditable;
     const items = comp.checklistItems || [];
@@ -340,11 +482,105 @@
         lastCat = it.category;
         html += `<div class="checklist-cat">${escapeHtml(it.category)}</div>`;
       }
-      const done = !!comp.completed[it.id];
-      const dis = comp.checklistEditable ? "" : " disabled";
-      html += `<label class="checklist-item"><input type="checkbox" data-checklist-id="${escapeHtml(it.id)}"${done ? " checked" : ""}${dis}> <span>${escapeHtml(it.title)}</span></label>`;
+      const lastAt = formatReviewDate(it.lastReviewAt);
+      const rc = it.reviewCount ?? 0;
+      const meta = rc
+        ? `Last review: ${lastAt} · ${rc} log ${rc === 1 ? "entry" : "entries"}${it.hasLegacyTick ? " · includes legacy tick" : ""}`
+        : it.hasLegacyTick
+          ? "Legacy checklist tick only — log a fresh review to build your trail"
+          : "Not reviewed yet";
+      const hist = (it.recentReviews || [])
+        .map(
+          (r) =>
+            `<li><time datetime="${escapeHtml(r.created_at)}">${escapeHtml(formatReviewDate(r.created_at))}</time>${r.note ? ` — ${escapeHtml(r.note)}` : ""}</li>`
+        )
+        .join("");
+      const histBlock =
+        hist && rc
+          ? `<details class="checklist-history"><summary>Review history</summary><ul>${hist}</ul></details>`
+          : "";
+      const btnDis = comp.checklistEditable ? "" : " disabled";
+      html += `<div class="checklist-row" data-item-id="${escapeHtml(it.id)}">
+        <div class="checklist-row-head">
+          <div class="checklist-row-title">${escapeHtml(it.title)}</div>
+          <button type="button" class="btn-log-review" data-log-review="${escapeHtml(it.id)}"${btnDis}>Log review</button>
+        </div>
+        <div class="checklist-row-meta">${escapeHtml(meta)}</div>
+        ${histBlock}
+      </div>`;
     }
     if (body) body.innerHTML = html || "<p style='font-size:13px;color:#9ca3af;'>No checklist items.</p>";
+  }
+
+  function renderWeeklyRecaps(recaps, showPanelForPro) {
+    const panel = el("panel-weekly");
+    const list = el("weekly-recap-list");
+    if (!panel || !list) return;
+    weeklyRecapsCache = Array.isArray(recaps) ? recaps : [];
+    if (!weeklyRecapsCache.length) {
+      if (!showPanelForPro) {
+        panel.style.display = "none";
+        list.innerHTML = "";
+        return;
+      }
+      panel.style.display = "block";
+      list.innerHTML =
+        "<p style='font-size:13px;color:#6b7280;line-height:1.55;margin:0;'>No saved recaps yet. After your next <strong>Friday 16:00 UK</strong> weekly email, the same content will appear here for printing or PDF.</p>";
+      return;
+    }
+    panel.style.display = "block";
+    list.innerHTML = weeklyRecapsCache
+      .map((r, idx) => {
+        const when = escapeHtml(r.periodEnding || "");
+        const prev = String(r.summaryText || "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 140);
+        return `<div class="weekly-recap-item">
+        <div>
+          <div class="when">Week ending ${when}</div>
+          <div class="preview">${escapeHtml(prev)}${prev.length >= 140 ? "…" : ""}</div>
+        </div>
+        <button type="button" class="btn-weekly-print" data-recap-idx="${idx}">Print / PDF</button>
+      </div>`;
+      })
+      .join("");
+
+    list.querySelectorAll(".btn-weekly-print").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.getAttribute("data-recap-idx"));
+        const r = weeklyRecapsCache[idx];
+        if (!r) return;
+        const html = r.summaryHtml || "";
+        const title = `Week ending ${r.periodEnding || ""}`;
+        const w = window.open("", "_blank");
+        if (!w) return;
+        w.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;padding:28px;max-width:720px;margin:0 auto;color:#111;line-height:1.6;}
+h1{font-size:22px;margin:0 0 8px;} .sub{color:#6b7280;font-size:14px;margin-bottom:24px;}
+@media print{body{padding:16px;}}
+</style></head><body>
+<h1>ActAware</h1>
+<p class="sub">${escapeHtml(title)} · UK employer compliance recap · Information only, not legal advice</p>
+<div class="body">${html || "<p>No HTML body stored for this recap.</p>"}</div>
+<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},250);});<\/script>
+</body></html>`);
+        w.document.close();
+      });
+    });
+  }
+
+  function openReviewModal(itemId, title) {
+    reviewModalItemId = itemId;
+    el("modal-review-item-title").textContent = title || "";
+    el("modal-review-note").value = "";
+    el("modal-review").hidden = false;
+  }
+
+  function closeReviewModal() {
+    reviewModalItemId = null;
+    el("modal-review").hidden = true;
   }
 
   function setSessionChecking(show) {
@@ -468,9 +704,10 @@
     }
     session = sess;
     const token = sess.access_token;
-    const [data, comp] = await Promise.all([
+    const [data, comp, weekly] = await Promise.all([
       fetchAlerts(token, buildAlertsPayload()),
       fetchCompliance(token),
+      fetchWeeklyRecaps(token),
     ]);
     lastLoadedAuthUserId = uid || null;
     allAlerts = data.alerts || [];
@@ -481,9 +718,12 @@
     showLoginMsg("", false);
     el("pro-filters")?.classList.toggle("visible", !!dashboardMeta.proFilters);
     if (comp) {
-      renderMilestones(comp.milestones);
+      renderMilestones(comp.milestones, !!comp.calendarActionsEnabled);
       renderChecklistUI(comp);
     }
+    const showWeeklyPanel =
+      (weekly?.recaps?.length > 0) || !!comp?.calendarActionsEnabled;
+    renderWeeklyRecaps(weekly?.recaps || [], showWeeklyPanel);
     renderAlerts(allAlerts, data.sharedBriefings || [], data.meta);
   }
 
@@ -656,11 +896,23 @@
       refreshAlertsOnly();
     });
 
-    el("checklist-body")?.addEventListener("change", async (ev) => {
-      const t = ev.target;
-      if (t.type !== "checkbox" || !t.getAttribute("data-checklist-id")) return;
-      if (!dashboardCompliance?.checklistEditable || !session?.access_token) return;
-      const itemId = t.getAttribute("data-checklist-id");
+    el("checklist-body")?.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("[data-log-review]");
+      if (!btn || btn.disabled) return;
+      if (!dashboardCompliance?.checklistEditable) return;
+      const itemId = btn.getAttribute("data-log-review");
+      const row = btn.closest(".checklist-row");
+      const titleEl = row?.querySelector(".checklist-row-title");
+      openReviewModal(itemId, titleEl?.textContent || "");
+    });
+
+    el("modal-review-cancel")?.addEventListener("click", () => closeReviewModal());
+    el("modal-review")?.querySelector("[data-close-modal]")?.addEventListener("click", () => closeReviewModal());
+
+    el("modal-review-submit")?.addEventListener("click", async () => {
+      const itemId = reviewModalItemId;
+      if (!itemId || !session?.access_token) return;
+      const note = (el("modal-review-note")?.value || "").trim();
       try {
         const res = await fetch("/.netlify/functions/dashboard-compliance", {
           method: "POST",
@@ -668,18 +920,18 @@
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ itemId, done: t.checked }),
+          body: JSON.stringify({ action: "addReview", itemId, note }),
         });
         const out = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(out.error || "Could not save");
+        if (!res.ok) throw new Error(out.error || "Could not save review");
+        closeReviewModal();
         const comp = await fetchCompliance(session.access_token);
         if (comp) {
           dashboardCompliance = comp;
           renderChecklistUI(comp);
         }
       } catch (err) {
-        t.checked = !t.checked;
-        alert(err.message || "Could not update checklist");
+        alert(err.message || "Could not log review");
       }
     });
 

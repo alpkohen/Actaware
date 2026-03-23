@@ -1,16 +1,15 @@
 /**
- * Compliance calendar (static milestones), checklist definitions, and per-user checklist progress.
- * Professional / Agency only for writes; all signed-in users can read calendar + definitions.
+ * Compliance calendar (+ calendar export for Pro/Agency), checklist review log, definitions.
  */
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
+const { buildCalendarPayload } = require("./lib/calendar-export");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
 
-/** Key UK employer compliance dates (update periodically). */
 const COMPLIANCE_MILESTONES = [
   {
     id: "era-p1",
@@ -134,7 +133,7 @@ exports.handler = async function (event) {
   try {
     const { data: userRow, error: uErr } = await supabaseAdmin
       .from("users")
-      .select("id")
+      .select("id, first_name, last_name")
       .eq("email", auth.email)
       .maybeSingle();
     if (uErr) throw uErr;
@@ -155,48 +154,87 @@ exports.handler = async function (event) {
 
     const plan = subRow?.plan || "starter";
     const status = subRow?.status || "inactive";
-    const canUseChecklist = proPlan(plan, status);
+    const canUseProTools = proPlan(plan, status);
 
     if (event.httpMethod === "GET") {
-      let completed = {};
-      if (canUseChecklist) {
-        const { data: rows, error: cErr } = await supabaseAdmin
+      const milestones = COMPLIANCE_MILESTONES.map((m) => ({
+        ...m,
+        ...(canUseProTools ? { calendar: buildCalendarPayload(m) } : {}),
+      }));
+
+      let legacyCompleted = {};
+      let reviewsByItem = {};
+
+      if (canUseProTools) {
+        const { data: leg, error: lErr } = await supabaseAdmin
           .from("user_compliance_checklist")
           .select("item_id, completed_at")
           .eq("user_id", userRow.id);
-        if (cErr) throw cErr;
-        for (const r of rows || []) {
-          completed[r.item_id] = r.completed_at;
+        if (lErr) throw lErr;
+        for (const r of leg || []) {
+          legacyCompleted[r.item_id] = r.completed_at;
+        }
+
+        const { data: revRows, error: rErr } = await supabaseAdmin
+          .from("compliance_checklist_reviews")
+          .select("item_id, note, created_at")
+          .eq("user_id", userRow.id)
+          .order("created_at", { ascending: false });
+        if (rErr) throw rErr;
+
+        for (const row of revRows || []) {
+          const id = row.item_id;
+          if (!reviewsByItem[id]) reviewsByItem[id] = [];
+          reviewsByItem[id].push({
+            note: row.note || "",
+            created_at: row.created_at,
+          });
         }
       }
 
+      const checklistWithState = CHECKLIST_ITEMS.map((it) => {
+        const revs = reviewsByItem[it.id] || [];
+        const lastReviewAt = revs[0]?.created_at || null;
+        const reviewCount = revs.length;
+        const hasLegacy = !!legacyCompleted[it.id];
+        const covered = reviewCount > 0 || hasLegacy;
+        return {
+          ...it,
+          lastReviewAt,
+          reviewCount,
+          hasLegacyTick: hasLegacy,
+          covered,
+          recentReviews: revs.slice(0, 8),
+        };
+      });
+
       const total = CHECKLIST_ITEMS.length;
-      const doneCount = CHECKLIST_ITEMS.filter((it) => completed[it.id]).length;
+      const doneCount = checklistWithState.filter((x) => x.covered).length;
       const scorePercent = total ? Math.round((doneCount / total) * 100) : 0;
 
       return {
         statusCode: 200,
         headers: h(),
         body: JSON.stringify({
-          milestones: COMPLIANCE_MILESTONES,
-          checklistItems: CHECKLIST_ITEMS,
-          completed,
+          milestones,
+          checklistItems: checklistWithState,
           scorePercent,
           doneCount,
           totalChecklistItems: total,
           plan,
-          checklistEditable: canUseChecklist,
+          checklistEditable: canUseProTools,
+          calendarActionsEnabled: canUseProTools,
         }),
       };
     }
 
     if (event.httpMethod === "POST") {
-      if (!canUseChecklist) {
+      if (!canUseProTools) {
         return {
           statusCode: 403,
           headers: h(),
           body: JSON.stringify({
-            error: "Compliance checklist is included on Professional and Agency plans.",
+            error: "This feature is included on Professional and Agency plans.",
           }),
         };
       }
@@ -208,36 +246,62 @@ exports.handler = async function (event) {
         return { statusCode: 400, headers: h(), body: JSON.stringify({ error: "Invalid JSON" }) };
       }
 
-      const itemId = String(body.itemId || "").trim();
-      const done = !!body.done;
-      if (!itemId || !CHECKLIST_ITEMS.some((x) => x.id === itemId)) {
-        return { statusCode: 400, headers: h(), body: JSON.stringify({ error: "Invalid itemId" }) };
+      const action = String(body.action || "addReview").toLowerCase();
+
+      if (action === "addreview" || action === "add_review") {
+        const itemId = String(body.itemId || "").trim();
+        const note = String(body.note ?? "").trim().slice(0, 2000);
+        if (!itemId || !CHECKLIST_ITEMS.some((x) => x.id === itemId)) {
+          return { statusCode: 400, headers: h(), body: JSON.stringify({ error: "Invalid itemId" }) };
+        }
+
+        const { error: insErr } = await supabaseAdmin.from("compliance_checklist_reviews").insert({
+          user_id: userRow.id,
+          item_id: itemId,
+          note: note || null,
+        });
+        if (insErr) throw insErr;
+
+        return {
+          statusCode: 200,
+          headers: h(),
+          body: JSON.stringify({ ok: true, itemId }),
+        };
       }
 
-      if (done) {
-        const { error: upErr } = await supabaseAdmin.from("user_compliance_checklist").upsert(
-          {
-            user_id: userRow.id,
-            item_id: itemId,
-            completed_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id,item_id" }
-        );
-        if (upErr) throw upErr;
-      } else {
-        const { error: delErr } = await supabaseAdmin
-          .from("user_compliance_checklist")
-          .delete()
-          .eq("user_id", userRow.id)
-          .eq("item_id", itemId);
-        if (delErr) throw delErr;
+      /** @deprecated Legacy checkbox sync — still supported for older clients */
+      if (action === "toggle" || body.itemId) {
+        const itemId = String(body.itemId || "").trim();
+        const done = !!body.done;
+        if (!itemId || !CHECKLIST_ITEMS.some((x) => x.id === itemId)) {
+          return { statusCode: 400, headers: h(), body: JSON.stringify({ error: "Invalid itemId" }) };
+        }
+        if (done) {
+          const { error: upErr } = await supabaseAdmin.from("user_compliance_checklist").upsert(
+            {
+              user_id: userRow.id,
+              item_id: itemId,
+              completed_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,item_id" }
+          );
+          if (upErr) throw upErr;
+        } else {
+          const { error: delErr } = await supabaseAdmin
+            .from("user_compliance_checklist")
+            .delete()
+            .eq("user_id", userRow.id)
+            .eq("item_id", itemId);
+          if (delErr) throw delErr;
+        }
+        return {
+          statusCode: 200,
+          headers: h(),
+          body: JSON.stringify({ ok: true, itemId, done }),
+        };
       }
 
-      return {
-        statusCode: 200,
-        headers: h(),
-        body: JSON.stringify({ ok: true, itemId, done }),
-      };
+      return { statusCode: 400, headers: h(), body: JSON.stringify({ error: "Unknown action" }) };
     }
 
     return { statusCode: 405, headers: h(), body: JSON.stringify({ error: "Method not allowed" }) };

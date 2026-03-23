@@ -220,12 +220,19 @@ ${textToEmailHtml(summaryText)}
         open_tracking: false,
       });
       if (!testRun) {
-        const { error: logErr } = await supabase.from("weekly_summary_log").insert({
-          user_id: userId,
-          period_ending: periodEnding,
-        });
-        if (logErr && logErr.code !== "23505") {
-          console.warn("weekly_summary_log:", logErr.message);
+        const summaryHtml = textToEmailHtml(summaryText);
+        const { error: logErr } = await supabase.from("weekly_summary_log").upsert(
+          {
+            user_id: userId,
+            period_ending: periodEnding,
+            sent_at: new Date().toISOString(),
+            summary_text: summaryText,
+            summary_html: summaryHtml,
+          },
+          { onConflict: "user_id,period_ending" }
+        );
+        if (logErr) {
+          console.warn("weekly_summary_log upsert:", logErr.message);
         }
       }
       sent++;

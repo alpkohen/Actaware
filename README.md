@@ -111,6 +111,7 @@ Zamanlama: `netlify.toml` — `send-critical-alerts-background` → **`15 */2 * 
    - `supabase/migrations/20260326120000_digest_snapshots.sql` *(günlük standart özet kopyası — `dashboard.html` boşken son 30 gün)*
    - `supabase/migrations/20260327120000_auth_email_exists.sql` *(şifre sıfırlama öncesi e-posta kontrolü)*
    - `supabase/migrations/20260328120000_compliance_checklist_weekly_log.sql` *(checklist + haftalık özet dedupe)*
+   - `supabase/migrations/20260329120000_compliance_reviews_weekly_content.sql` *(inceleme günlüğü `compliance_checklist_reviews` + haftalık özet metin/HTML kolonları)*
 4. **Table Editor**’da tabloların oluştuğunu doğrulayın.
 
 > Tablolar yoksa fonksiyon çalışırken insert hataları log’a düşer; mail akışı diğer feed’lerle devam edebilir ama denetim/hata kaydı eksik kalır.
