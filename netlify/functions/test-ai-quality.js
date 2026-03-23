@@ -696,43 +696,49 @@ exports.handler = async function (event) {
     };
   }
 
-  const results = [];
+  // Run all scenarios in parallel — max wall time = slowest single call (~5s)
+  const rawResults = await Promise.allSettled(
+    scenarios.map(async (scenario) => {
+      console.log(`Running scenario ${scenario.id}: ${scenario.label}`);
+      const startMs = Date.now();
+      let output = "";
+      let error = null;
+      try {
+        const prompt = buildPrompt(scenario.items, scenario.source, tier);
+        output = await callClaude(prompt, tier);
+      } catch (err) {
+        error = err.message;
+      }
+      const evaluation = error ? null : evaluateResponse(output, scenario);
+      return {
+        id: scenario.id,
+        label: scenario.label,
+        description: scenario.description,
+        tier,
+        ms: Date.now() - startMs,
+        error: error || null,
+        grade: evaluation?.grade ?? "ERROR",
+        score: evaluation ? `${evaluation.score}/${evaluation.maxScore}` : "N/A",
+        checks: evaluation?.checks ?? [],
+        output: error ? null : output,
+        _evaluation: evaluation,
+      };
+    })
+  );
+
+  // Unwrap settled promises; sort by scenario id for consistent order
+  const results = rawResults
+    .map((r) => (r.status === "fulfilled" ? r.value : { error: r.reason?.message, grade: "ERROR" }))
+    .sort((a, b) => (a.id || 0) - (b.id || 0));
+
   let passCount = 0;
   let partialCount = 0;
   let failCount = 0;
-
-  for (const scenario of scenarios) {
-    console.log(`Running scenario ${scenario.id}: ${scenario.label}`);
-    const startMs = Date.now();
-    let output = "";
-    let error = null;
-
-    try {
-      const prompt = buildPrompt(scenario.items, scenario.source, tier);
-      output = await callClaude(prompt, tier);
-    } catch (err) {
-      error = err.message;
-    }
-
-    const evaluation = error ? null : evaluateResponse(output, scenario);
-    if (evaluation) {
-      if (evaluation.grade === "PASS") passCount++;
-      else if (evaluation.grade === "PARTIAL") partialCount++;
-      else failCount++;
-    }
-
-    results.push({
-      id: scenario.id,
-      label: scenario.label,
-      description: scenario.description,
-      tier,
-      ms: Date.now() - startMs,
-      error: error || null,
-      grade: evaluation?.grade ?? "ERROR",
-      score: evaluation ? `${evaluation.score}/${evaluation.maxScore}` : "N/A",
-      checks: evaluation?.checks ?? [],
-      output: error ? null : output,
-    });
+  for (const r of results) {
+    if (r._evaluation?.grade === "PASS") passCount++;
+    else if (r._evaluation?.grade === "PARTIAL") partialCount++;
+    else if (r._evaluation?.grade === "FAIL") failCount++;
+    delete r._evaluation; // strip internal field from output
   }
 
   const total = scenarios.length;
