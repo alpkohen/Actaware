@@ -2,7 +2,7 @@ const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
 const { getResendFrom } = require("./lib/resend-from");
 const { getSiteUrl } = require("./lib/site-url");
-const { escapeHtml, safeHttpUrl, textToEmailHtml } = require("./lib/html-escape");
+const { escapeHtml, safeHttpUrl, textToEmailHtml, formatSectorNoteForEmail } = require("./lib/html-escape");
 const {
   RSS_FEEDS,
   MONITORED_FEED_COUNT,
@@ -108,7 +108,7 @@ Digest excerpts (from official UK sources, as summarised):
 ${excerpt}
 ---
 
-Write exactly 3 bullet points in plain text. Each line must start with "- " (dash then space). Say which themes above matter most for employers in this sector and any sector-specific watch-outs. Do not invent legal facts not hinted in the excerpts; if thin, say what to monitor generally. No HTML, no numbering besides the dash.`;
+Write exactly 3 bullet points in plain text only. Each line must start with "- " (dash then space). Say which themes above matter most for employers in this sector and any sector-specific watch-outs. Do not invent legal facts not hinted in the excerpts; if thin, say what to monitor generally. Never use HTML tags (<ul>, <li>, <p>, etc.) — only plain lines starting with "- ".`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -537,7 +537,7 @@ function formatUKDate(d) {
 
 function buildEmailHTML(companyName, alertSections, dateLabel, sectorNoteHtml = "") {
   const siteBase = getSiteUrl();
-  const sectorSafe = sectorNoteHtml ? textToEmailHtml(sectorNoteHtml) : "";
+  const sectorSafe = sectorNoteHtml ? formatSectorNoteForEmail(sectorNoteHtml) : "";
   const greeting = companyName
     ? `Hi <strong>${escapeHtml(companyName)}</strong>`
     : "Hi there";
