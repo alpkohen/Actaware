@@ -8,11 +8,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-/** Must match Stripe Dashboard prices */
+/** Must match Stripe Dashboard prices (live mode) */
 const PLAN_PRICE_IDS = {
-  starter: "price_1TChtb1Xanrz03nuIzigt2x5",
-  professional: "price_1TChu51Xanrz03numP5U6R8R",
-  agency: "price_1TCJTk1Xanrz03nu2Hk5Lsgr",
+  starter: "price_1TECr11Xanrz03nulyrRqRNC",
+  professional: "price_1TECrS1Xanrz03nucwVjBqTK",
+  agency: "price_1TECrg1Xanrz03nuEkFymBFg",
 };
 
 const PAID_PLANS = new Set(["starter", "professional", "agency"]);
