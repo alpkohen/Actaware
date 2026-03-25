@@ -384,6 +384,62 @@
     const upgradeMode = params.get("upgrade") === "1";
     let upgradeSession = null;
 
+    /** Wait for access token (storage, refresh, or auth callback completing). */
+    async function getSessionForUpgrade(client) {
+      let {
+        data: { session },
+      } = await client.auth.getSession();
+      if (session?.access_token) return session;
+
+      const { data: refreshed } = await client.auth.refreshSession();
+      if (refreshed.session?.access_token) return refreshed.session;
+
+      return await new Promise((resolve) => {
+        let sub = null;
+        const t = setTimeout(() => {
+          try {
+            sub?.unsubscribe();
+          } catch (_) {}
+          resolve(null);
+        }, 4000);
+        try {
+          const { data } = client.auth.onAuthStateChange((event, s) => {
+            if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+              if (s?.access_token) {
+                clearTimeout(t);
+                try {
+                  sub?.unsubscribe();
+                } catch (_) {}
+                resolve(s);
+              }
+            }
+          });
+          sub = data.subscription;
+        } catch (_) {
+          clearTimeout(t);
+          resolve(null);
+        }
+      });
+    }
+
+    function setSelectValue(selectEl, value) {
+      if (!selectEl || value == null) return;
+      const v = String(value).trim();
+      if (!v) return;
+      const opts = [...selectEl.options];
+      if (opts.some((o) => o.value === v)) {
+        selectEl.value = v;
+        return;
+      }
+      const lower = v.toLowerCase();
+      const match = opts.find(
+        (o) =>
+          o.value &&
+          (o.value.toLowerCase() === lower || o.textContent.trim().toLowerCase().replace(/\s+/g, " ") === lower)
+      );
+      if (match) selectEl.value = match.value;
+    }
+
     const cfg = PLANS[plan];
     document.getElementById("plan-badge").textContent = cfg.badge;
     document.getElementById("page-title").textContent = upgradeMode ? cfg.titleUpgrade : cfg.title;
@@ -393,9 +449,7 @@
     document.title = (upgradeMode ? cfg.titleUpgrade : cfg.title) + " — ActAware";
 
     if (upgradeMode && supabase) {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const session = await getSessionForUpgrade(supabase);
       if (session?.access_token) {
         upgradeSession = session;
         const pr = await fetch("/.netlify/functions/account-profile", {
@@ -410,8 +464,8 @@
           document.getElementById("phone").value = p.phone || "";
           document.getElementById("companyName").value = p.companyName || "";
           document.getElementById("jobTitle").value = p.jobTitle || "";
-          document.getElementById("industry").value = p.industry || "";
-          document.getElementById("companySize").value = p.companySize || "";
+          setSelectValue(document.getElementById("industry"), p.industry);
+          setSelectValue(document.getElementById("companySize"), p.companySize);
           document.getElementById("notes").value = p.notes || "";
         }
       }

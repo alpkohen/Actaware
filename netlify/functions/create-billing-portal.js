@@ -1,6 +1,7 @@
 const Stripe = require("stripe");
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
+const { getSiteUrl } = require("./lib/site-url");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -68,10 +69,10 @@ exports.handler = async function (event) {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const siteUrl = process.env.SITE_URL || "https://act-aware.netlify.app";
+    const siteUrl = getSiteUrl();
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${siteUrl.replace(/\/$/, "")}/account.html`,
+      return_url: `${siteUrl}/account.html`,
     });
 
     return { statusCode: 200, headers: h(), body: JSON.stringify({ url: session.url }) };

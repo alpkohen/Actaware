@@ -3,6 +3,7 @@ const { Resend } = require("resend");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
 const { getResendFrom } = require("./lib/resend-from");
 const { ensureAuthUserWithPassword } = require("./lib/ensure-auth-user");
+const { getSiteUrl } = require("./lib/site-url");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -38,7 +39,7 @@ async function sendTrialWelcomeEmail({ to, firstName, trialDays, trialEndsAt }) 
     console.warn("register-trial: RESEND_API_KEY missing, skipping welcome email");
     return { sent: false, reason: "missing_resend_key" };
   }
-  const site = (process.env.SITE_URL || "https://act-aware.netlify.app").replace(/\/$/, "");
+  const site = getSiteUrl();
   const name = firstName || "there";
   const endStr = trialEndsAt
     ? new Date(trialEndsAt).toLocaleString("en-GB", {
@@ -91,24 +92,40 @@ async function sendTrialWelcomeEmail({ to, firstName, trialDays, trialEndsAt }) 
     </p>
   `;
 
+  const from = getResendFrom();
+  if (!from.includes("@")) {
+    console.error("register-trial: invalid RESEND_FROM / CONTACT_FORM_FROM (no @):", JSON.stringify(from));
+    return { sent: false, reason: "invalid_from_address" };
+  }
+
   try {
     const resend = new Resend(key);
-    const { data, error } = await resend.emails.send({
-      from: getResendFrom(),
+    const result = await resend.emails.send({
+      from,
       to,
       subject: "You’re in — ActAware free trial started",
       text,
       html,
     });
-    if (error) {
-      console.error("register-trial Resend:", JSON.stringify(error));
-      return { sent: false, reason: error.message || "resend_rejected" };
+    const err = result?.error;
+    if (err) {
+      const msg =
+        typeof err === "string"
+          ? err
+          : err.message || err.name || JSON.stringify(err);
+      console.error("register-trial Resend:", msg, JSON.stringify(err));
+      return { sent: false, reason: msg || "resend_rejected" };
     }
-    console.log("register-trial: welcome email sent to", to, data?.id || "");
+    const id = result?.data?.id;
+    if (!id) {
+      console.error("register-trial Resend: missing message id", JSON.stringify(result));
+      return { sent: false, reason: "resend_no_message_id" };
+    }
+    console.log("register-trial: welcome email sent to", to, id);
     return { sent: true };
   } catch (e) {
-    console.error("register-trial welcome email:", e.message);
-    return { sent: false, reason: e.message || "send_failed" };
+    console.error("register-trial welcome email:", e?.message || e, e?.stack || "");
+    return { sent: false, reason: e?.message || String(e) || "send_failed" };
   }
 }
 

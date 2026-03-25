@@ -1,19 +1,14 @@
 const Stripe = require("stripe");
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
+const { getSiteUrl } = require("./lib/site-url");
+const { getPlanPriceIds } = require("./lib/stripe-plan-prices");
 const { ensureAuthUserWithPassword } = require("./lib/ensure-auth-user");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
-
-/** Must match Stripe Dashboard prices (live mode) */
-const PLAN_PRICE_IDS = {
-  starter: "price_1TECr11Xanrz03nulyrRqRNC",
-  professional: "price_1TECrS1Xanrz03nucwVjBqTK",
-  agency: "price_1TECrg1Xanrz03nuEkFymBFg",
-};
 
 const PAID_PLANS = new Set(["starter", "professional", "agency"]);
 
@@ -259,7 +254,7 @@ exports.handler = async function (event) {
       };
     }
 
-    const priceId = PLAN_PRICE_IDS[plan];
+    const priceId = getPlanPriceIds()[plan];
     if (!priceId || !process.env.STRIPE_SECRET_KEY) {
       return {
         statusCode: 500,
@@ -269,7 +264,7 @@ exports.handler = async function (event) {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const siteUrl = process.env.SITE_URL || "https://act-aware.netlify.app";
+    const siteUrl = getSiteUrl();
 
     const cancelQs = new URLSearchParams({ plan });
     if (isUpgrade) cancelQs.set("upgrade", "1");

@@ -2,6 +2,7 @@ const Stripe = require("stripe");
 const { createClient } = require("@supabase/supabase-js");
 const { Resend } = require("resend");
 const { getResendFrom } = require("./lib/resend-from");
+const { getSiteUrl } = require("./lib/site-url");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
@@ -18,7 +19,7 @@ async function sendSubscriptionConfirmedEmail(to, plan) {
     console.warn("stripe-webhook: RESEND_API_KEY missing, skip confirmation email");
     return;
   }
-  const site = (process.env.SITE_URL || "https://act-aware.netlify.app").replace(/\/$/, "");
+  const site = getSiteUrl();
   const title = planTitle(plan);
   const text = [
     "Your ActAware subscription is confirmed.",

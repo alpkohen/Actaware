@@ -45,7 +45,7 @@ SQL Editor’da çalıştırın:
 
 - Fiyat kartları **`register.html?plan=starter`**, **`?plan=professional`**, **`?plan=agency`** adresine gider.
 - **`register-and-checkout`** — Profili Supabase `users` tablosuna yazar; **Starter / Professional** için Stripe Checkout URL döner; **Agency** için `mailto:` ile dolu gövde döner (önce kayıt, sonra e-posta istemcisi).
-- Fiyat ID’leri `register-and-checkout.js` içinde tanımlı (`PLAN_PRICE_IDS`); Stripe’da değişirsen burayı güncelle.
+- Fiyat ID’leri: Netlify’da **`STRIPE_PRICE_STARTER`**, **`STRIPE_PRICE_PROFESSIONAL`**, **`STRIPE_PRICE_AGENCY`** (boşsa `lib/stripe-plan-prices.js` varsayılan test ID’leri). Canlıda **`sk_live_...`** ile **Live** moddaki Price ID’leri bu env’lere yazın.
 - Eski `create-checkout-session` silindi; tüm checkout akışı `register-and-checkout` üzerinden.
 
 ## Professional / Agency — ürün vaadi vs kod
@@ -72,7 +72,7 @@ SQL Editor’da çalıştırın:
 ### Supabase Auth ayarları
 
 1. **Authentication → Providers → Email** — Açık; **Confirm email** testte kapalı olabilir (kayıt sonrası anında oturum için).
-2. **Authentication → URL configuration** — **Site URL** üretim kökünüz (ör. `https://act-aware.netlify.app`).
+2. **Authentication → URL configuration** — **Site URL** üretim kökünüz (ör. `https://actaware.co.uk`; önizleme için `https://….netlify.app` de ekleyebilirsiniz).
 3. **Redirect URLs** — `https://…/dashboard.html`, `https://…/reset-password.html` ve yerel test portunuz (örn. `http://localhost:8888/reset-password.html`).
 4. **SQL:** `supabase/migrations/20260327120000_auth_email_exists.sql` — Supabase SQL Editor’da veya CLI ile uygula; `check-auth-email` Netlify fonksiyonu şifre sıfırlama öncesi bu RPC ile hesap var mı kontrol eder.
 5. **E-posta görünümü (ActAware markası)** — `docs/supabase-auth-email-templates.md` (confirm signup, reset password şablonları).
@@ -139,8 +139,11 @@ Background fonksiyon ve diğer lambda’lar için tipik değişkenler:
 | `RESEND_API_KEY` | E-posta gönderimi |
 | `ANTHROPIC_API_KEY` | Özet üretimi |
 | `SITE_URL` | Checkout success / e-posta footer “Manage subscription” / dashboard linkleri. **Boşsa** kod `https://actaware.co.uk` kullanır (`lib/site-url.js`). Canlı domain farklıysa mutlaka ayarlayın. |
-| `STRIPE_SECRET_KEY` | Ödeme (checkout + webhook) |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook doğrulama |
+| `STRIPE_SECRET_KEY` | Ödeme (checkout + webhook); test için `sk_test_...`, canlı için `sk_live_...` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook doğrulama (endpoint’e özel `whsec_...`; test ve canlı ayrı) |
+| `STRIPE_PRICE_STARTER` | *(Opsiyonel)* Checkout’ta Starter plan Price ID; boşsa repo varsayılanı |
+| `STRIPE_PRICE_PROFESSIONAL` | *(Opsiyonel)* Professional plan Price ID |
+| `STRIPE_PRICE_AGENCY` | *(Opsiyonel)* Agency plan Price ID |
 | `ALERT_EMAIL` | *(Opsiyonel)* Feed hata olunca Resend ile uyarı almak istediğiniz adres |
 | `SEND_ALERTS_TEST_RUN` | `true` ise Londra 08:00 kilidini atlar — **sadece manuel test için**; bitince kaldırın |
 | `TEST_EMAIL_ONLY` | Örn. `siz@email.com` — mail **yalnızca bu adrese** gider (abonelikte yoksa bile test maili gider; `sent_alerts` yazılmaz) |
@@ -162,14 +165,14 @@ Aynı şekilde şu **üç** değişkeni birden açın: `SEND_ALERTS_TEST_RUN` = 
 
 ## Kaynakların tamamının taranması (güvence)
 
-`send-alerts-background.js` içinde **12 adet** RSS/Atom kaynağı (`RSS_FEEDS`) tanımlıdır; her çalıştırmada **hepsi sırayla denenir** (biri çökse diğerleri devam eder).
+`lib/employer-feeds.js` içinde **17** RSS/Atom kaynağı (`RSS_FEEDS`) tanımlıdır; `send-alerts-background` bunu kullanır — her çalıştırmada **hepsi sırayla denenir** (biri çökse diğerleri devam eder).
 
 ### Nasıl doğrularsınız?
 
 1. **Netlify** → site → **Functions** → `send-alerts-background` → son çalıştırmanın **Response body** JSON’una bakın:
    - `feedOutcomes`: her kaynak için `status` (`in_digest`, `no_items_in_window`, `claude_no_employer_relevant`, `fetch_or_parse_error`, `claude_error`)
    - `summary`: kaç kaynak özetlendi, kaçında hata var, vb.
-2. **Supabase** → `raw_feed_logs`: aynı `run_id` ile 12 satır görürsünüz (her kaynak bir satır; `item_count` o pencerede kaç item olduğunu gösterir).
+2. **Supabase** → `raw_feed_logs`: aynı `run_id` ile **17** satır görürsünüz (her kaynak bir satır; `item_count` o pencerede kaç item olduğunu gösterir).
 3. **Supabase** → `feed_fetch_errors`: sadece gerçek hata olduğunda satır oluşur (HTTP timeout, Anthropic hata mesajı `Anthropic: ...` ile başlayabilir).
 
 ### Bilerek uygulanan sınırlar (atlanma değil, tasarım)

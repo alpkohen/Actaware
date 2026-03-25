@@ -126,6 +126,24 @@ function escapeAttr(s) {
     .replace(/>/g, "&gt;");
 }
 
+/** Hero / marketing links marked with [data-auth-trial-cta]: point logged-in users to the app instead of trial signup. */
+function syncTrialMarketingCtas(loggedIn) {
+  document.querySelectorAll("[data-auth-trial-cta]").forEach((el) => {
+    if (!(el instanceof HTMLAnchorElement)) return;
+    if (!el.dataset.authTrialOrigHref) {
+      el.dataset.authTrialOrigHref = el.getAttribute("href") || "trial.html";
+      el.dataset.authTrialOrigText = el.textContent;
+    }
+    if (loggedIn) {
+      el.setAttribute("href", el.dataset.authLoggedInHref || "dashboard.html");
+      el.textContent = el.dataset.authLoggedInLabel || "Go to My alerts";
+    } else {
+      el.setAttribute("href", el.dataset.authTrialOrigHref);
+      el.textContent = el.dataset.authTrialOrigText;
+    }
+  });
+}
+
 /**
  * @param {object} [opts]
  * @param {string} [opts.signInPath] default dashboard.html
@@ -149,6 +167,7 @@ export async function initAuthStatus(opts = {}) {
   const cfg = await cfgRes.json().catch(() => ({}));
   if (!cfgRes.ok || !cfg.supabaseUrl || !cfg.supabaseAnonKey) {
     root.innerHTML = loggedOutHtml(paths.signIn, paths.trial);
+    syncTrialMarketingCtas(false);
     return null;
   }
 
@@ -167,6 +186,7 @@ export async function initAuthStatus(opts = {}) {
     } = await supabase.auth.getSession();
     if (!session?.access_token) {
       root.innerHTML = loggedOutHtml(paths.signIn, paths.trial);
+      syncTrialMarketingCtas(false);
       return;
     }
 
@@ -203,14 +223,18 @@ export async function initAuthStatus(opts = {}) {
       btn.addEventListener("click", async () => {
         await supabase.auth.signOut();
         root.innerHTML = loggedOutHtml(paths.signIn, paths.trial);
+        syncTrialMarketingCtas(false);
       });
     }
+
+    syncTrialMarketingCtas(true);
   }
 
   await render();
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session) {
       root.innerHTML = loggedOutHtml(paths.signIn, paths.trial);
+      syncTrialMarketingCtas(false);
     } else {
       render();
     }
