@@ -4,6 +4,8 @@
  */
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
+const { getClientIp } = require("./lib/client-ip");
+const { consumeRateLimit, envInt } = require("./lib/rate-limit");
 
 function isValidEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(s || "").trim());
@@ -23,6 +25,24 @@ exports.handler = async function (event) {
     return { statusCode: 503, headers: h(), body: JSON.stringify({ error: "Server misconfigured." }) };
   }
 
+  const supabase = createClient(url, key);
+  const ip = getClientIp(event);
+  const rl = await consumeRateLimit(
+    supabase,
+    `check_auth_email:${ip}`,
+    envInt("RATE_LIMIT_CHECK_AUTH_EMAIL_MAX", 12),
+    envInt("RATE_LIMIT_WINDOW_SECONDS", 60)
+  );
+  if (!rl.allowed) {
+    return {
+      statusCode: 429,
+      headers: h(),
+      body: JSON.stringify({ error: "Too many requests. Please try again shortly." }),
+    };
+  }
+
+  const t0 = Date.now();
+
   let body;
   try {
     body = JSON.parse(event.body || "{}");
@@ -35,11 +55,12 @@ exports.handler = async function (event) {
     return { statusCode: 400, headers: h(), body: JSON.stringify({ error: "Enter a valid email address." }) };
   }
 
-  const supabase = createClient(url, key);
   const { data, error } = await supabase.rpc("auth_email_exists", { p_email: email });
 
   if (error) {
     console.error("check-auth-email rpc:", error.message);
+    const padErr = Math.max(0, 180 + Math.floor(Math.random() * 80) - (Date.now() - t0));
+    if (padErr > 0) await new Promise((r) => setTimeout(r, padErr));
     return {
       statusCode: 503,
       headers: h(),
@@ -48,6 +69,9 @@ exports.handler = async function (event) {
       }),
     };
   }
+
+  const padOk = Math.max(0, 180 + Math.floor(Math.random() * 80) - (Date.now() - t0));
+  if (padOk > 0) await new Promise((r) => setTimeout(r, padOk));
 
   return {
     statusCode: 200,

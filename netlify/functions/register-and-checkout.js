@@ -4,6 +4,9 @@ const { makeCorsHeaders, preflight } = require("./lib/cors");
 const { getSiteUrl } = require("./lib/site-url");
 const { getPlanPriceIds } = require("./lib/stripe-plan-prices");
 const { ensureAuthUserWithPassword } = require("./lib/ensure-auth-user");
+const { getClientIp } = require("./lib/client-ip");
+const { consumeRateLimit, envInt } = require("./lib/rate-limit");
+const { verifyBearerAuth } = require("./lib/verify-token");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -65,31 +68,16 @@ async function saveUserProfile(emailNorm, fields) {
   return inserted.id;
 }
 
-/** Stripe checkout requires a Supabase session (email + password on register page). */
+/** Stripe checkout upgrade flow: JWT email must match form email. */
 async function verifyBearerEmailMatches(event, emailNorm) {
-  const authHeader = event.headers.authorization || event.headers.Authorization || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  if (!token) {
-    return {
-      ok: false,
-      status: 401,
-      message:
-        "Set a password on this form (same email) and click Continue again — or sign in at My alerts if you already have an account.",
-    };
-  }
-  const url = process.env.SUPABASE_URL;
-  const anon = process.env.SUPABASE_ANON_KEY;
-  if (!url || !anon) return { ok: false, status: 503, message: "Server misconfigured." };
-  const authClient = createClient(url, anon);
-  const {
-    data: { user },
-    error,
-  } = await authClient.auth.getUser(token);
-  if (error || !user?.email) {
-    return { ok: false, status: 401, message: "Invalid or expired session. Sign in at My alerts and try again." };
-  }
-  const jwtEmail = String(user.email).trim().toLowerCase();
-  if (jwtEmail !== emailNorm) {
+  const v = await verifyBearerAuth(event, {
+    unauthorized:
+      "Set a password on this form (same email) and click Continue again — or sign in at My alerts if you already have an account.",
+    misconfigured: "Server misconfigured.",
+    invalid_session: "Invalid or expired session. Sign in at My alerts and try again.",
+  });
+  if (!v.ok) return { ok: false, status: v.status, message: v.message };
+  if (v.email !== emailNorm) {
     return { ok: false, status: 403, message: "Email must match your signed-in account." };
   }
   return { ok: true };
@@ -101,6 +89,21 @@ exports.handler = async function (event) {
   if (event.httpMethod === "OPTIONS") return preflight(event);
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ error: "Method not allowed" }) };
+  }
+
+  const ip = getClientIp(event);
+  const rl = await consumeRateLimit(
+    supabase,
+    `register_checkout:${ip}`,
+    envInt("RATE_LIMIT_REGISTER_CHECKOUT_MAX", 10),
+    envInt("RATE_LIMIT_WINDOW_SECONDS", 60)
+  );
+  if (!rl.allowed) {
+    return {
+      statusCode: 429,
+      headers: corsHeaders(),
+      body: JSON.stringify({ error: "Too many requests. Please wait a minute and try again." }),
+    };
   }
 
   let body;

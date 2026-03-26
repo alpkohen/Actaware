@@ -2,6 +2,7 @@ const Stripe = require("stripe");
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
 const { getSiteUrl } = require("./lib/site-url");
+const { verifyBearerAuth } = require("./lib/verify-token");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -15,28 +16,16 @@ exports.handler = async function (event) {
     return { statusCode: 405, headers: h(), body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
-  const authHeader = event.headers.authorization || event.headers.Authorization || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  if (!token) {
-    return { statusCode: 401, headers: h(), body: JSON.stringify({ error: "Sign in required." }) };
+  const auth = await verifyBearerAuth(event, {
+    unauthorized: "Sign in required.",
+    misconfigured: "Server misconfigured.",
+    invalid_session: "Invalid session.",
+  });
+  if (!auth.ok) {
+    return { statusCode: auth.status, headers: h(), body: JSON.stringify({ error: auth.message }) };
   }
 
-  const url = process.env.SUPABASE_URL;
-  const anon = process.env.SUPABASE_ANON_KEY;
-  if (!url || !anon) {
-    return { statusCode: 503, headers: h(), body: JSON.stringify({ error: "Server misconfigured." }) };
-  }
-
-  const authClient = createClient(url, anon);
-  const {
-    data: { user },
-    error: authErr,
-  } = await authClient.auth.getUser(token);
-  if (authErr || !user?.email) {
-    return { statusCode: 401, headers: h(), body: JSON.stringify({ error: "Invalid session." }) };
-  }
-
-  const emailNorm = String(user.email).trim().toLowerCase();
+  const emailNorm = auth.email;
 
   try {
     const { data: dbUser, error: uErr } = await supabaseAdmin

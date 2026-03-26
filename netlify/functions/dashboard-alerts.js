@@ -1,5 +1,6 @@
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
+const { verifyBearerAuth } = require("./lib/verify-token");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -90,41 +91,20 @@ exports.handler = async function (event) {
     return { statusCode: 405, headers: h(), body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
-  const authHeader = event.headers.authorization || event.headers.Authorization || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  if (!token) {
+  const auth = await verifyBearerAuth(event, {
+    unauthorized: "Sign in required. Use your email and password on this page.",
+    misconfigured: "Server misconfigured (missing Supabase anon key)",
+    invalid_session: "Invalid or expired session. Sign in again with your email and password.",
+  });
+  if (!auth.ok) {
     return {
-      statusCode: 401,
+      statusCode: auth.status,
       headers: h({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ error: "Sign in required. Use your email and password on this page." }),
+      body: JSON.stringify({ error: auth.message }),
     };
   }
 
-  const url = process.env.SUPABASE_URL;
-  const anon = process.env.SUPABASE_ANON_KEY;
-  if (!url || !anon) {
-    return {
-      statusCode: 503,
-      headers: h({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ error: "Server misconfigured (missing Supabase anon key)" }),
-    };
-  }
-
-  const authClient = createClient(url, anon);
-  const {
-    data: { user: authUser },
-    error: authErr,
-  } = await authClient.auth.getUser(token);
-
-  if (authErr || !authUser?.email) {
-    return {
-      statusCode: 401,
-      headers: h({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ error: "Invalid or expired session. Sign in again with your email and password." }),
-    };
-  }
-
-  const emailNorm = String(authUser.email).trim().toLowerCase();
+  const emailNorm = auth.email;
 
   try {
     const body = JSON.parse(event.body || "{}");

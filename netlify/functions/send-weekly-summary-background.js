@@ -7,6 +7,8 @@ const Resend = require("resend").Resend;
 const { getResendFrom } = require("./lib/resend-from");
 const { getSiteUrl } = require("./lib/site-url");
 const { escapeHtml } = require("./lib/html-escape");
+const { tryAcquireDigestLock } = require("./lib/digest-run-lock");
+const { runWithConcurrency } = require("./lib/run-with-concurrency");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -132,13 +134,32 @@ exports.handler = async function () {
     }
   }
 
+  const weekRunId = `week_${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  if (!testRun) {
+    const lock = await tryAcquireDigestLock(supabase, `weekly_summary:${periodEnding}`, weekRunId);
+    if (lock.duplicate) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ skipped: true, reason: "duplicate_weekly_run", periodEnding }),
+      };
+    }
+    if (lock.error) {
+      console.error("weekly digest lock failed:", lock.error.message || lock.error);
+      return { statusCode: 500, body: JSON.stringify({ error: "Lock failed" }) };
+    }
+  }
+
   let sent = 0;
   const errors = [];
+  const emailConcurrency = Math.max(
+    1,
+    Math.min(15, parseInt(process.env.EMAIL_SEND_CONCURRENCY || "6", 10) || 6)
+  );
 
-  for (const row of targets) {
+  await runWithConcurrency(targets, emailConcurrency, async (row) => {
     const userId = row.user_id;
     const email = row.users?.email;
-    if (!userId || !email) continue;
+    if (!userId || !email) return;
 
     if (!testRun) {
       const { data: existing } = await supabase
@@ -147,7 +168,7 @@ exports.handler = async function () {
         .eq("user_id", userId)
         .eq("period_ending", periodEnding)
         .maybeSingle();
-      if (existing?.user_id) continue;
+      if (existing?.user_id) return;
     }
 
     const { data: alerts, error: aErr } = await supabase
@@ -160,7 +181,7 @@ exports.handler = async function () {
       .limit(100);
     if (aErr) {
       errors.push({ email, err: aErr.message });
-      continue;
+      return;
     }
 
     const list = alerts || [];
@@ -243,7 +264,7 @@ ${textToEmailHtml(summaryText)}
     } catch (mailErr) {
       errors.push({ email, err: mailErr.message });
     }
-  }
+  });
 
   return {
     statusCode: 200,

@@ -4,6 +4,8 @@ const { makeCorsHeaders, preflight } = require("./lib/cors");
 const { getResendFrom } = require("./lib/resend-from");
 const { ensureAuthUserWithPassword } = require("./lib/ensure-auth-user");
 const { getSiteUrl } = require("./lib/site-url");
+const { getClientIp } = require("./lib/client-ip");
+const { consumeRateLimit, envInt } = require("./lib/rate-limit");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -143,6 +145,21 @@ exports.handler = async function (event) {
   if (event.httpMethod === "OPTIONS") return preflight(event);
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ error: "Method not allowed" }) };
+  }
+
+  const ip = getClientIp(event);
+  const rl = await consumeRateLimit(
+    supabase,
+    `register_trial:${ip}`,
+    envInt("RATE_LIMIT_REGISTER_TRIAL_MAX", 5),
+    envInt("RATE_LIMIT_WINDOW_SECONDS", 60)
+  );
+  if (!rl.allowed) {
+    return {
+      statusCode: 429,
+      headers: corsHeaders(),
+      body: JSON.stringify({ error: "Too many requests. Please wait a minute and try again." }),
+    };
   }
 
   let body;

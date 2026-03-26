@@ -9,6 +9,8 @@ const Resend = require("resend").Resend;
 const { getResendFrom } = require("./lib/resend-from");
 const { escapeHtml, safeHttpUrl, textToEmailHtml } = require("./lib/html-escape");
 const { RSS_FEEDS, fetchRSS, parseRSSItems, selectItemsInWindow } = require("./lib/employer-feeds");
+const { tryAcquireDigestLock } = require("./lib/digest-run-lock");
+const { runWithConcurrency } = require("./lib/run-with-concurrency");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -253,8 +255,26 @@ exports.handler = async function () {
         ];
   }
 
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   const runId = `crit_${new Date().toISOString().replace(/[:.]/g, "-")}`;
+
+  if (!testRun && !testEmailOnly) {
+    const hourBucket = new Date();
+    hourBucket.setUTCMinutes(0, 0, 0);
+    const lockKey = `critical_pulse:${hourBucket.toISOString()}`;
+    const lock = await tryAcquireDigestLock(supabase, lockKey, runId);
+    if (lock.duplicate) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ skipped: true, reason: "duplicate_critical_run", lockKey }),
+      };
+    }
+    if (lock.error) {
+      console.error("critical digest lock failed:", lock.error.message || lock.error);
+      return { statusCode: 500, body: JSON.stringify({ error: "Lock failed" }) };
+    }
+  }
+
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   const allCriticalSections = [];
 
   for (const feed of RSS_FEEDS) {
@@ -323,16 +343,20 @@ exports.handler = async function () {
   }
 
   let sent = 0;
-  for (const sub of users) {
+  const emailConcurrency = Math.max(
+    1,
+    Math.min(20, parseInt(process.env.EMAIL_SEND_CONCURRENCY || "8", 10) || 8)
+  );
+
+  await runWithConcurrency(users, emailConcurrency, async (sub) => {
     try {
       const toSend = flatCards.filter((card) => {
         const dt = dedupeTitle(card.sourceUrl, card.title);
         return !sub.user_id || !sentSet.has(`${sub.user_id}|${dt}`);
       });
 
-      if (toSend.length === 0) continue;
+      if (toSend.length === 0) return;
 
-      // Write DB records FIRST (same pattern as send-alerts-background) then send email
       if (sub.user_id) {
         const insertRows = toSend.map((card) => ({
           user_id: sub.user_id,
@@ -344,9 +368,8 @@ exports.handler = async function () {
         const { error: dbErr } = await supabase.from("sent_alerts").insert(insertRows);
         if (dbErr) {
           console.error(`Critical: sent_alerts insert failed for ${sub.users?.email}: ${dbErr.message}`);
-          continue;
+          return;
         }
-        // Add newly inserted titles to the in-memory set to prevent re-sending to same user
         for (const row of insertRows) {
           sentSet.add(`${sub.user_id}|${row.alert_title}`);
         }
@@ -366,7 +389,7 @@ exports.handler = async function () {
     } catch (err) {
       console.error(`Critical mail error ${sub.users?.email}: ${err.message}`);
     }
-  }
+  });
 
   return {
     statusCode: 202,

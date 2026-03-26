@@ -113,6 +113,7 @@ Zamanlama: `netlify.toml` — `send-critical-alerts-background` → **`15 */2 * 
    - `supabase/migrations/20260328120000_compliance_checklist_weekly_log.sql` *(checklist + haftalık özet dedupe)*
    - `supabase/migrations/20260329120000_compliance_reviews_weekly_content.sql` *(inceleme günlüğü `compliance_checklist_reviews` + haftalık özet metin/HTML kolonları)*
    - `supabase/migrations/20260330120000_subscriptions_user_id_unique_idempotent.sql` *(isteğe bağlı tekrar çalıştırma: `subscriptions` dedupe + `UNIQUE(user_id)` yoksa ekle)*
+   - `supabase/migrations/20260331150000_rate_limit_digest_lock_trgm.sql` *(API rate limit RPC + `digest_run_lock` + `sent_alerts` arama için `pg_trgm` indeksleri)*
 4. **Table Editor**’da tabloların oluştuğunu doğrulayın.
 
 > Tablolar yoksa fonksiyon çalışırken insert hataları log’a düşer; mail akışı diğer feed’lerle devam edebilir ama denetim/hata kaydı eksik kalır.
@@ -148,6 +149,11 @@ Background fonksiyon ve diğer lambda’lar için tipik değişkenler:
 | `SEND_ALERTS_TEST_RUN` | `true` ise Londra 08:00 kilidini atlar — **sadece manuel test için**; bitince kaldırın |
 | `TEST_EMAIL_ONLY` | Örn. `siz@email.com` — mail **yalnızca bu adrese** gider (abonelikte yoksa bile test maili gider; `sent_alerts` yazılmaz) |
 | `FORCE_QUIET_DAY_EMAIL` | `true` + **mutlaka** `TEST_EMAIL_ONLY` — RSS/Claude **çalışmaz**, sadece **“all quiet”** (güncelleme yok) mail şablonu gider |
+| `EMAIL_SEND_CONCURRENCY` | *(Opsiyonel)* Günlük/kritik/haftalık e-posta döngüsünde eşzamanlı gönderim sayısı (varsayılan **8**; üst sınır 20) |
+| `RATE_LIMIT_WINDOW_SECONDS` | *(Opsiyonel)* IP başına rate limit penceresi (varsayılan **60**) |
+| `RATE_LIMIT_REGISTER_TRIAL_MAX` | *(Opsiyonel)* `register-trial` — dakikada en çok istek (varsayılan **5**) |
+| `RATE_LIMIT_REGISTER_CHECKOUT_MAX` | *(Opsiyonel)* `register-and-checkout` (varsayılan **10**) |
+| `RATE_LIMIT_CHECK_AUTH_EMAIL_MAX` | *(Opsiyonel)* `check-auth-email` (varsayılan **12**) |
 
 Netlify: **Site settings → Environment variables**
 

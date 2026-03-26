@@ -4,6 +4,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
 const { buildCalendarPayload } = require("./lib/calendar-export");
+const { getAuthEmailFromEvent } = require("./lib/verify-token");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -96,30 +97,12 @@ function proPlan(plan, status) {
   return plan === "professional" || plan === "agency";
 }
 
-async function getAuthUserEmail(event) {
-  const authHeader = event.headers.authorization || event.headers.Authorization || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  if (!token) return { error: "unauthorized" };
-
-  const url = process.env.SUPABASE_URL;
-  const anon = process.env.SUPABASE_ANON_KEY;
-  if (!url || !anon) return { error: "misconfigured" };
-
-  const authClient = createClient(url, anon);
-  const {
-    data: { user },
-    error,
-  } = await authClient.auth.getUser(token);
-  if (error || !user?.email) return { error: "invalid_session" };
-  return { error: null, email: String(user.email).trim().toLowerCase() };
-}
-
 exports.handler = async function (event) {
   const h = (extra = {}) => makeCorsHeaders(event, { "Content-Type": "application/json", ...extra });
 
   if (event.httpMethod === "OPTIONS") return preflight(event);
 
-  const auth = await getAuthUserEmail(event);
+  const auth = await getAuthEmailFromEvent(event);
   if (auth.error === "unauthorized") {
     return { statusCode: 401, headers: h(), body: JSON.stringify({ error: "Sign in required." }) };
   }

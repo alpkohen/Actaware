@@ -10,6 +10,8 @@ const {
   parseRSSItems,
   selectItemsInWindow,
 } = require("./lib/employer-feeds");
+const { tryAcquireDigestLock } = require("./lib/digest-run-lock");
+const { runWithConcurrency } = require("./lib/run-with-concurrency");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -773,6 +775,25 @@ exports.handler = async function () {
     };
   }
 
+  // S-5: one production digest per London calendar day (duplicate cron / warm starts).
+  if (!testRun && !forceQuietDayPreview) {
+    const lockKey = `daily_digest:${getLondonDateString()}`;
+    const lock = await tryAcquireDigestLock(supabase, lockKey, runId);
+    if (lock.duplicate) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ skipped: true, reason: "duplicate_run", lockKey }),
+      };
+    }
+    if (lock.error) {
+      console.error("digest_run_lock insert failed:", lock.error.message || lock.error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Could not acquire digest lock" }),
+      };
+    }
+  }
+
   // ~36 hours: “yesterday” plus timezone / feed-delay slack. Daily run avoids re-sending stale undated items.
   const cutoff = Date.now() - 36 * 60 * 60 * 1000;
 
@@ -841,8 +862,12 @@ exports.handler = async function () {
   }
 
   let sentCount = 0;
+  const emailConcurrency = Math.max(
+    1,
+    Math.min(20, parseInt(process.env.EMAIL_SEND_CONCURRENCY || "8", 10) || 8)
+  );
 
-  for (const sub of users) {
+  await runWithConcurrency(users, emailConcurrency, async (sub) => {
     try {
       const pro = usesProfessionalDigest(sub.plan);
       const alertSections = pro ? sectionsProfessional : sectionsStandard;
@@ -850,7 +875,6 @@ exports.handler = async function () {
       const isQuietDay = alertSections.length === 0;
 
       if (isQuietDay) {
-        // 1. Write the DB record FIRST — email is only a delivery mechanism for this record
         if (sub.user_id) {
           const { error: dbErr } = await supabase.from("sent_alerts").insert({
             user_id: sub.user_id,
@@ -862,11 +886,9 @@ exports.handler = async function () {
           });
           if (dbErr) {
             console.error(`sent_alerts insert failed for ${sub.users?.email} (quiet-day): ${dbErr.message}`);
-            // Do not send email — record failed, do not create a ghost alert
-            continue;
+            return;
           }
         }
-        // 2. Send the email after the record is safely stored
         const html = buildQuietDayEmailHTML(sub.users.company_name, dateLabel);
         await resend.emails.send({
           from: getResendFrom(),
@@ -889,7 +911,6 @@ exports.handler = async function () {
             console.warn(`Sector note skipped for ${sub.users?.email}: ${secErr.message}`);
           }
         }
-        // 1. Write the DB record FIRST
         if (sub.user_id) {
           const { error: dbErr } = await supabase.from("sent_alerts").insert({
             user_id: sub.user_id,
@@ -900,10 +921,9 @@ exports.handler = async function () {
           });
           if (dbErr) {
             console.error(`sent_alerts insert failed for ${sub.users?.email} (digest): ${dbErr.message}`);
-            continue;
+            return;
           }
         }
-        // 2. Send the email after the record is safely stored
         const html = buildEmailHTML(sub.users.company_name, alertSections, dateLabel, sectorNoteHtml);
         const subjPro = pro ? " [Professional]" : "";
         await resend.emails.send({
@@ -926,7 +946,7 @@ exports.handler = async function () {
         `Email error [${isRateLimit ? "RATE_LIMIT — Resend 429" : "ERROR"}] for user ${sub.user_id ?? sub.users?.email}: ${err.message}`
       );
     }
-  }
+  });
 
   const globalQuiet =
     sectionsStandard.length === 0 && sectionsProfessional.length === 0;
