@@ -47,6 +47,7 @@ RULES:
 - EMPTY CONTENT — If the source only provides a title with no body text: focus on the general topic and employer obligation it implies. Do NOT speculate on case outcomes, tribunal decisions, or ruling details. Do NOT repeat party names or company names from the title — refer to the case generically (e.g. "a recent tribunal decision on…").
 - Never invent specific facts (dates, fines, company names not in the source). You may infer general employer obligations from the type of incident or change described.
 - If genuinely nothing is employer-relevant for the items provided (typically the last ~36 hours), respond ONLY with: No employer-relevant updates from this source in this batch.
+- SOURCE URL — Every alert MUST end with "Source: [full https URL from the item]". If the item has no URL, SKIP that item entirely. Never write "Source:" without a valid https URL on the same line.
 - For each relevant update use this exact format:
 
 **[Title]** (Importance: CRITICAL/HIGH/MEDIUM)
@@ -56,7 +57,7 @@ What employers must do:
 - [specific action]
 - [specific action]
 Risk if ignored: [consequence for employers]
-Source: [URL]${proBlocks}`;
+Source: [full https URL — REQUIRED, skip alert if missing]${proBlocks}`;
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -457,7 +458,7 @@ function parseAlertsFromText(text, sourceName) {
     const governanceOwnership = extractMarkdownField(trimmed, "Governance & ownership");
     const suggestedTimeline = extractMarkdownField(trimmed, "Suggested timeline");
     const crossChecks = extractMarkdownField(trimmed, "Cross-checks");
-    if (title || whatChanged) {
+    if (title && sourceUrl) {
       alertBlocks.push({
         importance,
         title,
@@ -472,6 +473,8 @@ function parseAlertsFromText(text, sourceName) {
         suggestedTimeline,
         crossChecks,
       });
+    } else if (title) {
+      console.warn(`[parse] Alert skipped — no verifiable source URL: "${title.slice(0, 80)}" (${sourceName})`);
     }
   }
   return alertBlocks;

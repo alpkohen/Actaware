@@ -63,9 +63,9 @@ Risk if ignored: [consequence]
 **Governance & ownership:** [teams]
 **Suggested timeline:** [immediate / before next payroll / within 7 days]
 **Cross-checks:** [2 bullets]
-Source: [URL]
+Source: [full https URL — REQUIRED; if the item has no URL, skip that item]
 
-No HIGH or MEDIUM items. CRITICAL only.`;
+No HIGH or MEDIUM items. CRITICAL only. Never write "Source:" without a valid https URL.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -133,7 +133,7 @@ function parseAlertsFromText(text, sourceName) {
     const governanceOwnership = extractMarkdownField(trimmed, "Governance & ownership");
     const suggestedTimeline = extractMarkdownField(trimmed, "Suggested timeline");
     const crossChecks = extractMarkdownField(trimmed, "Cross-checks");
-    if (title) {
+    if (title && sourceUrl) {
       alertBlocks.push({
         importance,
         title,
@@ -148,6 +148,8 @@ function parseAlertsFromText(text, sourceName) {
         suggestedTimeline,
         crossChecks,
       });
+    } else if (title) {
+      console.warn(`[critical-parse] Alert skipped — no verifiable source URL: "${title.slice(0, 80)}" (${sourceName})`);
     }
   }
   return alertBlocks;
