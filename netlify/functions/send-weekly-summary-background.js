@@ -114,7 +114,13 @@ exports.handler = async function () {
     .select("user_id, plan, users(email, company_name, industry, first_name, last_name)")
     .eq("status", "active")
     .in("plan", ["professional", "agency"]);
-  if (subErr) throw subErr;
+  if (subErr) {
+    console.error("FATAL: weekly-summary subscriber fetch failed:", subErr.message);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Subscriber fetch failed", detail: subErr.message }),
+    };
+  }
 
   const rows = subs || [];
   const testEmailOnly = process.env.TEST_EMAIL_ONLY?.trim();
@@ -177,8 +183,12 @@ exports.handler = async function () {
         );
       }
     } catch (e) {
+      console.warn(`Claude weekly summary failed for ${email}: ${e.message} — using fallback text`);
       errors.push({ email, err: e.message });
-      continue;
+      summaryText =
+        lines.length === 0
+          ? "It was a quiet week on the official feeds we monitor. Your next daily digest arrives Monday morning around 08:00 UK time."
+          : `This week you received ${lines.length} stored alert(s). Open My alerts on actaware.co.uk for full text and search.`;
     }
 
     const company = row.users?.company_name || "";

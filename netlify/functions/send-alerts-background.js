@@ -776,7 +776,16 @@ exports.handler = async function () {
   // ~36 hours: “yesterday” plus timezone / feed-delay slack. Daily run avoids re-sending stale undated items.
   const cutoff = Date.now() - 36 * 60 * 60 * 1000;
 
-  const baseUsers = await getActiveUsers();
+  let baseUsers;
+  try {
+    baseUsers = await getActiveUsers();
+  } catch (err) {
+    console.error("FATAL: getActiveUsers failed — aborting digest run:", err.message);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "User fetch failed", detail: err.message }),
+    };
+  }
   if (baseUsers.length === 0 && !testRun && !forceQuietDayPreview && !testEmailOnly) {
     return {
       statusCode: 200,
@@ -841,6 +850,23 @@ exports.handler = async function () {
       const isQuietDay = alertSections.length === 0;
 
       if (isQuietDay) {
+        // 1. Write the DB record FIRST — email is only a delivery mechanism for this record
+        if (sub.user_id) {
+          const { error: dbErr } = await supabase.from("sent_alerts").insert({
+            user_id: sub.user_id,
+            alert_title: `Daily check-in — no new updates (${shortDate})`,
+            alert_summary:
+              "No employer-relevant changes detected across monitored official UK sources in the last ~36 hours.",
+            alert_source: "system — quiet day",
+            importance: "medium",
+          });
+          if (dbErr) {
+            console.error(`sent_alerts insert failed for ${sub.users?.email} (quiet-day): ${dbErr.message}`);
+            // Do not send email — record failed, do not create a ghost alert
+            continue;
+          }
+        }
+        // 2. Send the email after the record is safely stored
         const html = buildQuietDayEmailHTML(sub.users.company_name, dateLabel);
         await resend.emails.send({
           from: getResendFrom(),
@@ -850,16 +876,6 @@ exports.handler = async function () {
           click_tracking: false,
           open_tracking: false,
         });
-        if (sub.user_id) {
-          await supabase.from("sent_alerts").insert({
-            user_id: sub.user_id,
-            alert_title: `Daily check-in — no new updates (${shortDate})`,
-            alert_summary:
-              "No employer-relevant changes detected across monitored official UK sources in the last ~36 hours.",
-            alert_source: "system — quiet day",
-            importance: "medium",
-          });
-        }
       } else {
         let sectorNoteHtml = "";
         if (pro && sub.users?.industry) {
@@ -873,6 +889,21 @@ exports.handler = async function () {
             console.warn(`Sector note skipped for ${sub.users?.email}: ${secErr.message}`);
           }
         }
+        // 1. Write the DB record FIRST
+        if (sub.user_id) {
+          const { error: dbErr } = await supabase.from("sent_alerts").insert({
+            user_id: sub.user_id,
+            alert_title: `Daily UK Employer Compliance (${digestLabel}) — ${shortDate}`,
+            alert_summary: alertSections.map((s) => `[${s.source}] ${s.content}`).join("\n\n").substring(0, 500),
+            alert_source: alertSections.map((s) => s.source).join(", "),
+            importance: alertSections.some((s) => s.priority === "critical") ? "critical" : "high",
+          });
+          if (dbErr) {
+            console.error(`sent_alerts insert failed for ${sub.users?.email} (digest): ${dbErr.message}`);
+            continue;
+          }
+        }
+        // 2. Send the email after the record is safely stored
         const html = buildEmailHTML(sub.users.company_name, alertSections, dateLabel, sectorNoteHtml);
         const subjPro = pro ? " [Professional]" : "";
         await resend.emails.send({
@@ -883,19 +914,17 @@ exports.handler = async function () {
           click_tracking: false,
           open_tracking: false,
         });
-        if (sub.user_id) {
-          await supabase.from("sent_alerts").insert({
-            user_id: sub.user_id,
-            alert_title: `Daily UK Employer Compliance (${digestLabel}) — ${shortDate}`,
-            alert_summary: alertSections.map((s) => `[${s.source}] ${s.content}`).join("\n\n").substring(0, 500),
-            alert_source: alertSections.map((s) => s.source).join(", "),
-            importance: alertSections.some((s) => s.priority === "critical") ? "critical" : "high",
-          });
-        }
       }
       sentCount++;
     } catch (err) {
-      console.error(`Email error for user ${sub.user_id ?? sub.users?.email}: ${err.message}`);
+      const isRateLimit =
+        err?.statusCode === 429 ||
+        err?.status === 429 ||
+        String(err?.message || "").toLowerCase().includes("rate limit") ||
+        String(err?.message || "").toLowerCase().includes("too many");
+      console.error(
+        `Email error [${isRateLimit ? "RATE_LIMIT — Resend 429" : "ERROR"}] for user ${sub.user_id ?? sub.users?.email}: ${err.message}`
+      );
     }
   }
 

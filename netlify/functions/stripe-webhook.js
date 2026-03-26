@@ -3,6 +3,7 @@ const { createClient } = require("@supabase/supabase-js");
 const { Resend } = require("resend");
 const { getResendFrom } = require("./lib/resend-from");
 const { getSiteUrl } = require("./lib/site-url");
+const { getPlanPriceIds } = require("./lib/stripe-plan-prices");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
@@ -83,8 +84,30 @@ exports.handler = async function (event) {
     const plan = session.metadata?.plan || "starter";
     if (!email) return { statusCode: 200, body: "OK" };
     try {
-      const { data: user, error: uErr } = await supabase.from("users").upsert({ email }, { onConflict: "email", ignoreDuplicates: false }).select("id").single();
+      // HIGH-2: Cross-check the price actually paid against the plan in metadata
+      // to catch any server-side bug that could give a user the wrong tier for free.
+      try {
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 5 });
+        const paidPriceId = lineItems?.data?.[0]?.price?.id;
+        const expectedPriceId = getPlanPriceIds()[plan];
+        if (paidPriceId && expectedPriceId && paidPriceId !== expectedPriceId) {
+          console.error(
+            `Webhook plan/price mismatch: metadata.plan="${plan}" expects price "${expectedPriceId}" but paid price is "${paidPriceId}". Aborting.`
+          );
+          return { statusCode: 400, body: "Plan/price mismatch — event rejected" };
+        }
+      } catch (priceCheckErr) {
+        // Non-fatal: log and continue if the price list call fails (e.g. already expired session)
+        console.warn("Webhook: price cross-check failed (non-fatal):", priceCheckErr.message);
+      }
+
+      const { data: user, error: uErr } = await supabase
+        .from("users")
+        .upsert({ email }, { onConflict: "email", ignoreDuplicates: false })
+        .select("id")
+        .single();
       if (uErr) throw uErr;
+
       const seatLimit = plan === "professional" ? 3 : plan === "agency" ? 15 : 1;
       const subPayload = {
         user_id: user.id,
@@ -95,11 +118,14 @@ exports.handler = async function (event) {
         trial_ends_at: null,
         seat_limit: seatLimit,
       };
-      const { data: existingSub } = await supabase.from("subscriptions").select("id").eq("user_id", user.id).maybeSingle();
-      const { error: sErr } = existingSub
-        ? await supabase.from("subscriptions").update(subPayload).eq("user_id", user.id)
-        : await supabase.from("subscriptions").insert(subPayload);
+
+      // HIGH-1: Use upsert on stripe_subscription_id instead of check+insert/update.
+      // This is atomic and idempotent — safe against duplicate Stripe webhook deliveries.
+      const { error: sErr } = await supabase
+        .from("subscriptions")
+        .upsert(subPayload, { onConflict: "stripe_subscription_id" });
       if (sErr) throw sErr;
+
       console.log("User saved:", email, plan);
       await sendSubscriptionConfirmedEmail(String(email).trim().toLowerCase(), plan);
     } catch (err) {
@@ -109,7 +135,17 @@ exports.handler = async function (event) {
   }
   if (stripeEvent.type === "customer.subscription.deleted" || stripeEvent.type === "customer.subscription.updated") {
     const sub = stripeEvent.data.object;
-    await supabase.from("subscriptions").update({ status: sub.status }).eq("stripe_subscription_id", sub.id);
+    try {
+      const { error: subUpdateErr } = await supabase
+        .from("subscriptions")
+        .update({ status: sub.status })
+        .eq("stripe_subscription_id", sub.id);
+      if (subUpdateErr) throw subUpdateErr;
+      console.log("Webhook: subscription status updated to", sub.status, "for", sub.id);
+    } catch (err) {
+      console.error("Webhook: subscription status update failed — returning 500 so Stripe retries:", err.message);
+      return { statusCode: 500, body: "DB update failed: " + err.message };
+    }
   }
   return { statusCode: 200, body: JSON.stringify({ received: true }) };
 };

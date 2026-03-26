@@ -167,29 +167,59 @@ exports.handler = async function (event) {
 
   const emailNorm = email.toLowerCase();
 
-  if (plan !== "agency") {
-    if (isUpgrade) {
-      const v = await verifyBearerEmailMatches(event, emailNorm);
-      if (!v.ok) {
-        return {
-          statusCode: v.status,
-          headers: corsHeaders(),
-          body: JSON.stringify({ error: v.message }),
-        };
-      }
-    } else {
-      const password = String(body.password ?? "");
-      const authResult = await ensureAuthUserWithPassword(supabase, emailNorm, password, {
-        first_name: firstName,
-        last_name: lastName,
-      });
-      if (!authResult.ok) {
-        return {
-          statusCode: authResult.status,
-          headers: corsHeaders(),
-          body: JSON.stringify({ error: authResult.message }),
-        };
-      }
+  // Agency enquiries: return a mailto link immediately — no auth required, no DB writes.
+  // This must happen BEFORE saveUserProfile so unauthenticated requests cannot write PII.
+  if (plan === "agency") {
+    const mailBody = [
+      "Please contact me about the Agency plan.",
+      "",
+      `Name: ${firstName} ${lastName}`,
+      `Email: ${emailNorm}`,
+      `Company: ${companyName}`,
+      `Role: ${jobTitle}`,
+      `Sector: ${industry}`,
+      `Company size: ${companySize}`,
+      phone ? `Phone: ${phone}` : null,
+      signupNotes ? `Notes: ${signupNotes}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const mailto =
+      "mailto:hello@actaware.co.uk?subject=" +
+      encodeURIComponent("Agency plan enquiry") +
+      "&body=" +
+      encodeURIComponent(mailBody);
+
+    return {
+      statusCode: 200,
+      headers: corsHeaders(),
+      body: JSON.stringify({ ok: true, flow: "mailto", mailto }),
+    };
+  }
+
+  // Starter / Professional: require authentication before touching the database.
+  if (isUpgrade) {
+    const v = await verifyBearerEmailMatches(event, emailNorm);
+    if (!v.ok) {
+      return {
+        statusCode: v.status,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: v.message }),
+      };
+    }
+  } else {
+    const password = String(body.password ?? "");
+    const authResult = await ensureAuthUserWithPassword(supabase, emailNorm, password, {
+      first_name: firstName,
+      last_name: lastName,
+    });
+    if (!authResult.ok) {
+      return {
+        statusCode: authResult.status,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: authResult.message }),
+      };
     }
   }
 
@@ -222,35 +252,6 @@ exports.handler = async function (event) {
         statusCode: 409,
         headers: corsHeaders(),
         body: JSON.stringify({ error: "This email already has an active paid subscription." }),
-      };
-    }
-
-    if (plan === "agency") {
-      const mailBody = [
-        "Please contact me about the Agency plan.",
-        "",
-        `Name: ${firstName} ${lastName}`,
-        `Email: ${emailNorm}`,
-        `Company: ${companyName}`,
-        `Role: ${jobTitle}`,
-        `Sector: ${industry}`,
-        `Company size: ${companySize}`,
-        phone ? `Phone: ${phone}` : null,
-        signupNotes ? `Notes: ${signupNotes}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n");
-
-      const mailto =
-        "mailto:hello@actaware.co.uk?subject=" +
-        encodeURIComponent("Agency plan enquiry") +
-        "&body=" +
-        encodeURIComponent(mailBody);
-
-      return {
-        statusCode: 200,
-        headers: corsHeaders(),
-        body: JSON.stringify({ ok: true, flow: "mailto", mailto }),
       };
     }
 

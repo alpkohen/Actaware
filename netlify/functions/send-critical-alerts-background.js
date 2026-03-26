@@ -304,27 +304,53 @@ exports.handler = async function () {
   });
   const mailTestPrefix = testRun ? "[TEST] " : "";
 
+  // HIGH-5: Pre-fetch all recently-sent critical alert titles for all users in ONE query
+  // instead of N×M individual queries inside the loop.
+  const allUserIds = users.map((u) => u.user_id).filter(Boolean);
+  const dedupeSince = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+  let sentSet = new Set();
+  if (allUserIds.length > 0) {
+    const { data: recentlySent, error: rsErr } = await supabase
+      .from("sent_alerts")
+      .select("user_id, alert_title")
+      .in("user_id", allUserIds)
+      .gte("sent_at", dedupeSince);
+    if (rsErr) {
+      console.warn("Critical alerts: dedup pre-fetch failed (continuing without dedup):", rsErr.message);
+    } else {
+      sentSet = new Set((recentlySent || []).map((r) => `${r.user_id}|${r.alert_title}`));
+    }
+  }
+
   let sent = 0;
   for (const sub of users) {
     try {
-      const toSend = [];
-      for (const card of flatCards) {
+      const toSend = flatCards.filter((card) => {
         const dt = dedupeTitle(card.sourceUrl, card.title);
-        if (sub.user_id) {
-          const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
-          const { data: existing } = await supabase
-            .from("sent_alerts")
-            .select("id")
-            .eq("user_id", sub.user_id)
-            .eq("alert_title", dt)
-            .gte("sent_at", since)
-            .limit(1);
-          if (existing && existing.length > 0) continue;
-        }
-        toSend.push(card);
-      }
+        return !sub.user_id || !sentSet.has(`${sub.user_id}|${dt}`);
+      });
 
       if (toSend.length === 0) continue;
+
+      // Write DB records FIRST (same pattern as send-alerts-background) then send email
+      if (sub.user_id) {
+        const insertRows = toSend.map((card) => ({
+          user_id: sub.user_id,
+          alert_title: dedupeTitle(card.sourceUrl, card.title),
+          alert_summary: `[critical-pulse] ${card.title} ${card.sourceUrl}`.substring(0, 500),
+          alert_source: `critical-pulse — ${card.sourceName}`,
+          importance: "critical",
+        }));
+        const { error: dbErr } = await supabase.from("sent_alerts").insert(insertRows);
+        if (dbErr) {
+          console.error(`Critical: sent_alerts insert failed for ${sub.users?.email}: ${dbErr.message}`);
+          continue;
+        }
+        // Add newly inserted titles to the in-memory set to prevent re-sending to same user
+        for (const row of insertRows) {
+          sentSet.add(`${sub.user_id}|${row.alert_title}`);
+        }
+      }
 
       const html = buildCriticalEmailHTML(sub.users.company_name, toSend, shortDate);
       await resend.emails.send({
@@ -336,17 +362,6 @@ exports.handler = async function () {
         open_tracking: false,
       });
 
-      for (const card of toSend) {
-        if (sub.user_id) {
-          await supabase.from("sent_alerts").insert({
-            user_id: sub.user_id,
-            alert_title: dedupeTitle(card.sourceUrl, card.title),
-            alert_summary: `[critical-pulse] ${card.title} ${card.sourceUrl}`.substring(0, 500),
-            alert_source: `critical-pulse — ${card.sourceName}`,
-            importance: "critical",
-          });
-        }
-      }
       sent++;
     } catch (err) {
       console.error(`Critical mail error ${sub.users?.email}: ${err.message}`);
