@@ -192,7 +192,8 @@ Bu sınırlar dışında, fetch/parse hatası olursa kayıt **`feed_fetch_errors
 
 ## Proje yapısı (kısa)
 
-- `index.html`, `trial.html`, `trial-welcome.html`, `register.html`, `account.html`, `dashboard.html`, `success.html`, `contact.html` — arayüz
+- `index.html`, `trial.html`, `trial-welcome.html`, `register.html`, `account.html`, `dashboard.html`, `success.html`, `contact.html`, `roadmap.html` — arayüz
+- `docs/roadmap.md` — ürün yol haritası (kaynak kapsamı, EAT vb.; sitede `roadmap.html` ile aynı içerik)
 - `js/auth-header.js` — site geneli oturum rozeti (`#auth-status`)
 - `netlify/functions/send-alerts-background.js` — günlük tarama ve mail
 - `netlify/functions/register-trial.js` — ücretsiz deneme kaydı + hoş geldin e-postası (Resend)
