@@ -532,9 +532,21 @@
         showErr("Please tick the agreement box to continue.");
         return;
       }
+
+      // Trial → paid: URL has upgrade=1 — must send upgrade:true + Bearer or server treats as new signup (email already exists).
+      let authSession = upgradeSession;
+      if (upgradeMode && supabase) {
+        const { data: s1 } = await supabase.auth.getSession();
+        if (s1?.session?.access_token) authSession = s1.session;
+        else {
+          const { data: s2 } = await supabase.auth.refreshSession();
+          if (s2?.session?.access_token) authSession = s2.session;
+        }
+      }
+
       const payload = {
         plan,
-        upgrade: !!upgradeSession,
+        upgrade: !!(upgradeMode && authSession?.access_token),
         firstName: document.getElementById("firstName").value.trim(),
         lastName: document.getElementById("lastName").value.trim(),
         email: document.getElementById("email").value.trim(),
@@ -550,8 +562,13 @@
       const headers = { "Content-Type": "application/json" };
 
       if (plan !== "agency") {
-        if (upgradeSession?.access_token) {
-          headers.Authorization = `Bearer ${upgradeSession.access_token}`;
+        if (authSession?.access_token) {
+          headers.Authorization = `Bearer ${authSession.access_token}`;
+        } else if (upgradeMode) {
+          showErr(
+            "You’re not signed in. Open My alerts, sign in with your trial email, then use Account → Upgrade again (same browser)."
+          );
+          return;
         } else {
           const pw = document.getElementById("password").value;
           const pw2 = document.getElementById("passwordConfirm").value;
