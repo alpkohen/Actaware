@@ -1,6 +1,10 @@
 const { RSS_FEEDS, fetchRSS } = require("./lib/employer-feeds");
+const { assertTestFunctionAllowed } = require("./lib/test-function-guard");
 
-exports.handler = async function () {
+exports.handler = async function (event) {
+  const gate = assertTestFunctionAllowed(event || {});
+  if (!gate.ok) return gate.response;
+
   const results = [];
 
   for (const feed of RSS_FEEDS) {

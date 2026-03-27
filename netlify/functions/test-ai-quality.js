@@ -6,11 +6,14 @@
  * each response for correctness, hallucination risk, and edge-case handling.
  *
  * Invoke: GET /.netlify/functions/test-ai-quality
+ * Production: disabled unless TEST_FUNCTIONS_SECRET is set; send header X-Actaware-Test-Secret.
  * Optional: ?scenario=1  (run a single scenario by number 1–23)
  * Optional: ?tier=professional  (test with professional digest tier)
  *
  * Cost: ~23 Claude Haiku calls (~$0.006 total). No emails sent, no DB writes.
  */
+
+const { assertTestFunctionAllowed } = require("./lib/test-function-guard");
 
 const TEST_SCENARIOS = [
   {
@@ -673,6 +676,9 @@ function evaluateResponse(output, scenario) {
 }
 
 exports.handler = async function (event) {
+  const gate = assertTestFunctionAllowed(event || {});
+  if (!gate.ok) return gate.response;
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return {
       statusCode: 500,
