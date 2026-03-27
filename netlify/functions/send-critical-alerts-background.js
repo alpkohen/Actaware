@@ -11,6 +11,7 @@ const { escapeHtml, safeHttpUrl, textToEmailHtml } = require("./lib/html-escape"
 const { RSS_FEEDS, fetchRSS, parseRSSItems, selectItemsInWindow } = require("./lib/employer-feeds");
 const { tryAcquireDigestLock } = require("./lib/digest-run-lock");
 const { runWithConcurrency } = require("./lib/run-with-concurrency");
+const { digestGreetingDisplayName } = require("./lib/digest-greeting-name");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -21,7 +22,7 @@ async function getProAgencyUsers() {
   const { data, error } = await supabase
     .from("subscriptions")
     .select(
-      "user_id, plan, trial_ends_at, stripe_subscription_id, users(email, company_name)"
+      "user_id, plan, trial_ends_at, stripe_subscription_id, users(email, company_name, first_name, last_name)"
     )
     .eq("status", "active")
     .in("plan", ["professional", "agency"]);
@@ -197,10 +198,10 @@ function buildAlertCardHTML(alert) {
     </div>`;
 }
 
-function buildCriticalEmailHTML(companyName, cards, shortDate) {
+function buildCriticalEmailHTML(greetingName, cards, shortDate) {
   const inner = cards.map(buildAlertCardHTML).join("");
-  const greeting = companyName
-    ? `Hi <strong>${escapeHtml(companyName)}</strong>`
+  const greeting = greetingName
+    ? `Hi <strong>${escapeHtml(greetingName)}</strong>`
     : "Hi there";
   return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f3f4f6;font-family:system-ui,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;"><tr><td align="center">
@@ -252,7 +253,7 @@ exports.handler = async function () {
           {
             user_id: null,
             plan: "professional",
-            users: { email: testEmailOnly, company_name: "Test org" },
+            users: { email: testEmailOnly, company_name: "Test org", first_name: "Test" },
           },
         ];
   }
@@ -377,7 +378,7 @@ exports.handler = async function () {
         }
       }
 
-      const html = buildCriticalEmailHTML(sub.users.company_name, toSend, shortDate);
+      const html = buildCriticalEmailHTML(digestGreetingDisplayName(sub.users), toSend, shortDate);
       await resend.emails.send({
         from: getResendFrom(),
         to: sub.users.email,

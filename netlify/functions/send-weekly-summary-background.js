@@ -9,6 +9,7 @@ const { getSiteUrl } = require("./lib/site-url");
 const { escapeHtml } = require("./lib/html-escape");
 const { tryAcquireDigestLock } = require("./lib/digest-run-lock");
 const { runWithConcurrency } = require("./lib/run-with-concurrency");
+const { digestGreetingDisplayName } = require("./lib/digest-greeting-name");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -212,7 +213,7 @@ exports.handler = async function () {
           : `This week you received ${lines.length} stored alert(s). Open My alerts on actaware.co.uk for full text and search.`;
     }
 
-    const company = row.users?.company_name || "";
+    const greetingName = digestGreetingDisplayName(row.users);
     const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
@@ -224,7 +225,7 @@ exports.handler = async function () {
 <div style="font-size:13px;color:#94a3b8;margin-top:4px;">Weekly compliance recap · Professional</div>
 </td></tr>
 <tr><td style="background:#fff;padding:24px 28px;">
-<p style="margin:0 0 8px;font-size:15px;color:#374151;">Hi ${company ? `<strong>${escapeHtml(company)}</strong>` : "there"},</p>
+<p style="margin:0 0 8px;font-size:15px;color:#374151;">Hi ${greetingName ? `<strong>${escapeHtml(greetingName)}</strong>` : "there"},</p>
 <p style="margin:0 0 16px;font-size:13px;color:#6b7280;">Week of ${escapeHtml(rangeLabel)} (UK)</p>
 ${textToEmailHtml(summaryText)}
 <p style="margin:20px 0 0;font-size:13px;color:#6b7280;"><a href="${escapeHtml(`${getSiteUrl()}/dashboard.html`)}" style="color:#6366f1;">Open My alerts</a> for your full archive and filters.</p>

@@ -11,6 +11,7 @@ const {
   selectItemsInWindow,
 } = require("./lib/employer-feeds");
 const { tryAcquireDigestLock } = require("./lib/digest-run-lock");
+const { digestGreetingDisplayName } = require("./lib/digest-greeting-name");
 const { runWithConcurrency } = require("./lib/run-with-concurrency");
 
 const supabase = createClient(
@@ -540,11 +541,11 @@ function formatUKDate(d) {
   });
 }
 
-function buildEmailHTML(companyName, alertSections, dateLabel, sectorNoteHtml = "") {
+function buildEmailHTML(greetingName, alertSections, dateLabel, sectorNoteHtml = "") {
   const siteBase = getSiteUrl();
   const sectorSafe = sectorNoteHtml ? formatSectorNoteForEmail(sectorNoteHtml) : "";
-  const greeting = companyName
-    ? `Hi <strong>${escapeHtml(companyName)}</strong>`
+  const greeting = greetingName
+    ? `Hi <strong>${escapeHtml(greetingName)}</strong>`
     : "Hi there";
   const allCards = alertSections.flatMap(section =>
     parseAlertsFromText(section.content, section.source)
@@ -634,10 +635,10 @@ function buildEmailHTML(companyName, alertSections, dateLabel, sectorNoteHtml = 
 }
 
 /** Short “all quiet” email when no employer-relevant items made the digest. */
-function buildQuietDayEmailHTML(companyName, dateLabel) {
+function buildQuietDayEmailHTML(greetingName, dateLabel) {
   const siteBase = getSiteUrl();
-  const greeting = companyName
-    ? `Hi <strong>${escapeHtml(companyName)}</strong>`
+  const greeting = greetingName
+    ? `Hi <strong>${escapeHtml(greetingName)}</strong>`
     : "Hi there";
   return `<!DOCTYPE html>
 <html lang="en">
@@ -892,7 +893,7 @@ exports.handler = async function () {
             return;
           }
         }
-        const html = buildQuietDayEmailHTML(sub.users.company_name, dateLabel);
+        const html = buildQuietDayEmailHTML(digestGreetingDisplayName(sub.users), dateLabel);
         await resend.emails.send({
           from: getResendFrom(),
           to: sub.users.email,
@@ -927,7 +928,7 @@ exports.handler = async function () {
             return;
           }
         }
-        const html = buildEmailHTML(sub.users.company_name, alertSections, dateLabel, sectorNoteHtml);
+        const html = buildEmailHTML(digestGreetingDisplayName(sub.users), alertSections, dateLabel, sectorNoteHtml);
         const subjPro = pro ? " [Professional]" : "";
         await resend.emails.send({
           from: getResendFrom(),
