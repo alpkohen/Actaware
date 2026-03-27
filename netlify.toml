@@ -33,3 +33,9 @@
 # Extended timeout for AI quality test (23 Claude calls ~90s total).
 [functions."test-ai-quality"]
   timeout = 300
+
+# Golden dataset eval: 2 Claude calls per case + Supabase insert.
+[functions."eval-alerts"]
+  schedule = "0 8 * * 1"
+  timeout = 300
+  included_files = ["data/golden_dataset.json"]

@@ -68,21 +68,6 @@ async function saveUserProfile(emailNorm, fields) {
   return inserted.id;
 }
 
-/** Stripe checkout upgrade flow: JWT email must match form email. */
-async function verifyBearerEmailMatches(event, emailNorm) {
-  const v = await verifyBearerAuth(event, {
-    unauthorized:
-      "Set a password on this form (same email) and click Continue again — or sign in at My alerts if you already have an account.",
-    misconfigured: "Server misconfigured.",
-    invalid_session: "Invalid or expired session. Sign in at My alerts and try again.",
-  });
-  if (!v.ok) return { ok: false, status: v.status, message: v.message };
-  if (v.email !== emailNorm) {
-    return { ok: false, status: 403, message: "Email must match your signed-in account." };
-  }
-  return { ok: true };
-}
-
 exports.handler = async function (event) {
   const corsHeaders = (extra = {}) => makeCorsHeaders(event, { "Content-Type": "application/json", ...extra });
 
@@ -136,28 +121,104 @@ exports.handler = async function (event) {
     };
   }
 
-  const firstName = cleanStr(body.firstName, 80);
-  const lastName = cleanStr(body.lastName, 80);
-  const email = cleanStr(body.email, 254);
-  const companyName = cleanStr(body.companyName, 200);
-  const industry = cleanStr(body.industry, 120);
-  const jobTitle = cleanStr(body.jobTitle, 120);
-  const companySize = cleanStr(body.companySize, 32);
-  const phone = cleanStr(body.phone, 40);
-  const signupNotes = cleanStr(body.notes, 500);
+  let firstName = cleanStr(body.firstName, 80);
+  let lastName = cleanStr(body.lastName, 80);
+  const emailRaw = cleanStr(body.email, 254);
+  let companyName = cleanStr(body.companyName, 200);
+  let industry = cleanStr(body.industry, 120);
+  let jobTitle = cleanStr(body.jobTitle, 120);
+  let companySize = cleanStr(body.companySize, 32);
+  let phone = cleanStr(body.phone, 40);
+  let signupNotes = cleanStr(body.notes, 500);
 
-  if (!firstName || !lastName || !email || !companyName || !industry || !jobTitle || !companySize) {
-    return {
-      statusCode: 400,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Please complete all required fields." }),
-    };
+  let emailNorm;
+
+  /** Trial / existing user upgrading: fill empty form fields from public.users (same row as JWT email). */
+  if (isUpgrade) {
+    const v = await verifyBearerAuth(event, {
+      unauthorized:
+        "Sign in at My alerts first (same browser), then use Upgrade again — or complete every field below.",
+      misconfigured: "Server misconfigured.",
+      invalid_session: "Invalid or expired session. Sign in at My alerts and try again.",
+    });
+    if (!v.ok) {
+      return {
+        statusCode: v.status,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: v.message }),
+      };
+    }
+    const formEmail = emailRaw.toLowerCase();
+    if (formEmail && formEmail !== v.email) {
+      return {
+        statusCode: 403,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Email must match your signed-in account." }),
+      };
+    }
+    emailNorm = formEmail || v.email;
+    if (!isValidEmail(emailNorm)) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Please enter a valid email address." }),
+      };
+    }
+
+    const { data: profileRow, error: profErr } = await supabase
+      .from("users")
+      .select("first_name, last_name, company_name, industry, job_title, company_size, phone, signup_notes")
+      .eq("email", emailNorm)
+      .maybeSingle();
+    if (profErr) {
+      console.error("register-and-checkout upgrade profile fetch:", profErr.message);
+      return {
+        statusCode: 500,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Could not load your saved profile. Try again shortly." }),
+      };
+    }
+    if (!firstName && profileRow?.first_name) firstName = cleanStr(profileRow.first_name, 80);
+    if (!lastName && profileRow?.last_name) lastName = cleanStr(profileRow.last_name, 80);
+    if (!companyName && profileRow?.company_name) companyName = cleanStr(profileRow.company_name, 200);
+    if (!industry && profileRow?.industry) industry = cleanStr(profileRow.industry, 120);
+    if (!jobTitle && profileRow?.job_title) jobTitle = cleanStr(profileRow.job_title, 120);
+    if (!companySize && profileRow?.company_size) companySize = cleanStr(profileRow.company_size, 32);
+    if (!phone && profileRow?.phone) phone = cleanStr(profileRow.phone, 40);
+    if (!signupNotes && profileRow?.signup_notes) signupNotes = cleanStr(profileRow.signup_notes, 500);
+  } else {
+    if (!firstName || !lastName || !emailRaw || !companyName || !industry || !jobTitle || !companySize) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Please complete all required fields." }),
+      };
+    }
+    if (!isValidEmail(emailRaw)) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Please enter a valid email address." }),
+      };
+    }
+    if (!COMPANY_SIZES.has(companySize)) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Please select a valid company size." }),
+      };
+    }
+    emailNorm = emailRaw.toLowerCase();
   }
-  if (!isValidEmail(email)) {
+
+  if (!firstName || !lastName || !companyName || !industry || !jobTitle || !companySize) {
     return {
       statusCode: 400,
       headers: corsHeaders(),
-      body: JSON.stringify({ error: "Please enter a valid email address." }),
+      body: JSON.stringify({
+        error:
+          "Please complete all required organisation details. If you are upgrading from a trial, sign in at My alerts in this browser first so we can load your saved profile.",
+      }),
     };
   }
   if (!COMPANY_SIZES.has(companySize)) {
@@ -167,8 +228,6 @@ exports.handler = async function (event) {
       body: JSON.stringify({ error: "Please select a valid company size." }),
     };
   }
-
-  const emailNorm = email.toLowerCase();
 
   // Agency enquiries: return a mailto link immediately — no auth required, no DB writes.
   // This must happen BEFORE saveUserProfile so unauthenticated requests cannot write PII.
@@ -201,17 +260,8 @@ exports.handler = async function (event) {
     };
   }
 
-  // Starter / Professional: require authentication before touching the database.
-  if (isUpgrade) {
-    const v = await verifyBearerEmailMatches(event, emailNorm);
-    if (!v.ok) {
-      return {
-        statusCode: v.status,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: v.message }),
-      };
-    }
-  } else {
+  // Starter / Professional: new signups create auth user; upgrades already verified above.
+  if (!isUpgrade) {
     const password = String(body.password ?? "");
     const authResult = await ensureAuthUserWithPassword(supabase, emailNorm, password, {
       first_name: firstName,

@@ -1,0 +1,82 @@
+[
+    {
+      "case_id": "001",
+      "source": "GOV.UK",
+      "input": "The National Minimum Wage will increase to £11.44 per hour for workers aged 21 and over from April 2024.",
+      "expected_summary": "Asgari ücret Nisan 2024'ten itibaren saatlik £11.44'e yükseliyor. 21 yaş ve üzeri tüm çalışanlar için geçerli.",
+      "expected_actions": ["Bordro sistemini Nisan öncesi güncelle", "Kıdemli personel maaş makasını kontrol et"],
+      "expected_priority": "critical"
+    },
+    {
+      "case_id": "002",
+      "source": "GOV.UK",
+      "input": "From 6 April 2024, employees have the right to request flexible working from day one of employment. Employers must respond within 2 months.",
+      "expected_summary": "Çalışanlar işe başladıkları ilk günden itibaren esnek çalışma talep edebilir. İşveren 2 ay içinde yanıt vermek zorunda.",
+      "expected_actions": ["İşe alım sürecine esnek çalışma sorusu ekle", "Yöneticilere talep reddetme prosedürünü öğret", "İK politikasını güncelle"],
+      "expected_priority": "high"
+    },
+    {
+      "case_id": "003",
+      "source": "GOV.UK",
+      "input": "Statutory Sick Pay (SSP) increases to £116.75 per week from April 2024. The waiting period remains 3 days.",
+      "expected_summary": "Yasal hastalık ödeneği haftada £116.75'e yükseliyor. 3 günlük bekleme süresi devam ediyor.",
+      "expected_actions": ["Bordro sisteminde SSP oranını güncelle", "Kısa vadeli devamsızlık maliyetlerini yeniden hesapla"],
+      "expected_priority": "medium"
+    },
+    {
+      "case_id": "004",
+      "source": "GOV.UK",
+      "input": "The Employment Rights Bill 2024 proposes to ban exploitative zero-hours contracts. Workers will have the right to request a guaranteed hours contract after 12 weeks.",
+      "expected_summary": "Sömürücü sıfır saatli sözleşmeler yasaklanıyor. 12 haftadan sonra çalışanlar garantili sözleşme talep edebilecek.",
+      "expected_actions": ["Mevcut sıfır saatli sözleşmeleri gözden geçir", "Hukuki danışman al", "Etkilenen personeli bilgilendir"],
+      "expected_priority": "critical"
+    },
+    {
+      "case_id": "005",
+      "source": "ACAS",
+      "input": "Employers must now provide a written statement of employment particulars on day one of employment, including details of probationary periods.",
+      "expected_summary": "İşverenler işe başlama günü yazılı iş sözleşmesi vermek zorunda. Deneme süresi detayları dahil edilmeli.",
+      "expected_actions": ["İş sözleşmesi şablonunu güncelle", "İşe alım sürecine kontrol listesi ekle"],
+      "expected_priority": "high"
+    },
+    {
+      "case_id": "006",
+      "source": "HSE",
+      "input": "Employers must ensure all workers have access to rest breaks of at least 20 minutes when working more than 6 hours. Failure to provide breaks can result in claims to employment tribunal.",
+      "expected_summary": "6 saatten fazla çalışan personele en az 20 dakika mola verilmesi zorunlu. İhlalde iş mahkemesi riski var.",
+      "expected_actions": ["Vardiya planlarını gözden geçir", "Yöneticilere mola takibini hatırlat", "Mola politikasını yazılı hale getir"],
+      "expected_priority": "medium"
+    },
+    {
+      "case_id": "007",
+      "source": "GOV.UK",
+      "input": "From April 2025, employers with 250 or more employees must publish their gender pay gap report by 4 April each year.",
+      "expected_summary": "250+ çalışanı olan işverenler her yıl 4 Nisan'a kadar cinsiyet ücret farkı raporunu yayınlamak zorunda.",
+      "expected_actions": ["Çalışan sayısını kontrol et, 250 eşiğine yaklaşıyorsan hazırlığa başla", "İK veri sistemini cinsiyet ücret analizi için hazırla"],
+      "expected_priority": "high"
+    },
+    {
+      "case_id": "008",
+      "source": "ICO",
+      "input": "Employers who monitor staff emails or internet usage must inform employees clearly in their employment contract or staff handbook. Covert monitoring is only lawful in exceptional circumstances.",
+      "expected_summary": "Çalışan email ve internet takibi yapan işverenler bunu sözleşmede açıkça belirtmeli. Gizli takip sadece istisnai durumlarda yasal.",
+      "expected_actions": ["Çalışan el kitabını güncelle", "Mevcut izleme politikasını hukuki açıdan gözden geçir"],
+      "expected_priority": "medium"
+    },
+    {
+      "case_id": "009",
+      "source": "Pensions Regulator",
+      "input": "Auto-enrolment minimum contributions remain at 8% total (3% employer, 5% employee) for 2024-25. Employers must re-enrol eligible workers every 3 years.",
+      "expected_summary": "Otomatik emeklilik katkısı %8 toplam (%3 işveren, %5 çalışan) olarak devam ediyor. Her 3 yılda bir yeniden kayıt zorunlu.",
+      "expected_actions": ["Son yeniden kayıt tarihini kontrol et", "Bordro sisteminde katkı oranlarını doğrula"],
+      "expected_priority": "medium"
+    },
+    {
+      "case_id": "010",
+      "source": "GOV.UK",
+      "input": "Paternity leave can now be taken in two separate one-week blocks within 52 weeks of birth, rather than only in the first 8 weeks.",
+      "expected_summary": "Babalık izni artık doğumdan sonraki 52 hafta içinde iki ayrı haftada kullanılabiliyor.",
+      "expected_actions": ["İK politikasını güncelle", "Yöneticilere yeni esnekliği bildir", "Bordro sisteminde izin takibini güncelle"],
+      "expected_priority": "medium"
+    }
+  ]

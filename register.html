@@ -197,6 +197,19 @@
       margin-bottom: 20px;
     }
     .form-error.visible { display: block; }
+    .upgrade-hint {
+      display: none;
+      padding: 12px 14px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      color: #1e40af;
+      font-size: 14px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .upgrade-hint.visible { display: block; }
+    .upgrade-hint a { color: #1d4ed8; font-weight: 600; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .btn .spinner {
       display: inline-block;
@@ -236,10 +249,11 @@
     <div class="badge" id="plan-badge">Plan</div>
     <h1 id="page-title">Complete your registration</h1>
     <p class="lead" id="page-lead">A few details about you and your organisation — then you’ll continue to secure checkout.</p>
-    <p class="trial-link">Want to try first? <a href="trial.html">Start a 14-day free trial</a> (no card).</p>
+    <p class="trial-link" id="trial-link-p">Want to try first? <a href="trial.html">Start a 14-day free trial</a> (no card).</p>
 
     <div class="card">
       <div id="form-error" class="form-error" role="alert"></div>
+      <div id="upgrade-hint" class="upgrade-hint" role="status"></div>
       <form id="register-form" novalidate>
         <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
 
@@ -401,7 +415,7 @@
             sub?.unsubscribe();
           } catch (_) {}
           resolve(null);
-        }, 4000);
+        }, 10000);
         try {
           const { data } = client.auth.onAuthStateChange((event, s) => {
             if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
@@ -441,12 +455,18 @@
     }
 
     const cfg = PLANS[plan];
+    const upgradeHintEl = document.getElementById("upgrade-hint");
     document.getElementById("plan-badge").textContent = cfg.badge;
     document.getElementById("page-title").textContent = upgradeMode ? cfg.titleUpgrade : cfg.title;
     document.getElementById("page-lead").textContent = upgradeMode ? cfg.leadUpgrade : cfg.lead;
     document.getElementById("consent-label").innerHTML = cfg.consent + ' <span class="req">*</span>';
     document.getElementById("submit-btn").textContent = cfg.btn;
     document.title = (upgradeMode ? cfg.titleUpgrade : cfg.title) + " — ActAware";
+
+    if (upgradeMode) {
+      const tl = document.getElementById("trial-link-p");
+      if (tl) tl.style.display = "none";
+    }
 
     if (upgradeMode && supabase) {
       const session = await getSessionForUpgrade(supabase);
@@ -467,8 +487,26 @@
           setSelectValue(document.getElementById("industry"), p.industry);
           setSelectValue(document.getElementById("companySize"), p.companySize);
           document.getElementById("notes").value = p.notes || "";
+        } else {
+          let detail = "";
+          try {
+            const errBody = await pr.json();
+            if (errBody?.error) detail = ` (${errBody.error})`;
+          } catch (_) {}
+          console.warn("[register] account-profile for upgrade failed:", pr.status, detail);
+          upgradeHintEl.innerHTML =
+            `<strong>We couldn’t load your saved trial details in the browser.</strong> You can still continue — if the form is empty, sign in at <a href="dashboard.html">My alerts</a> with your trial email and try <strong>Account → Upgrade</strong> again, or fill the form manually. Your server will merge saved profile data when you submit while signed in.`;
+          upgradeHintEl.classList.add("visible");
         }
+      } else {
+        upgradeHintEl.innerHTML =
+          `<strong>You’re not signed in.</strong> Open <a href="dashboard.html">My alerts</a>, sign in with the <strong>same email as your trial</strong>, then go to <strong>Account</strong> and click <strong>Upgrade</strong> again — your details will load automatically. (Or fill this form fully if you prefer.)`;
+        upgradeHintEl.classList.add("visible");
       }
+    } else if (upgradeMode && !supabase) {
+      upgradeHintEl.innerHTML =
+        `<strong>Sign-in could not initialise.</strong> Open <a href="dashboard.html">My alerts</a> in this browser, sign in, then use <strong>Account → Upgrade</strong> again.`;
+      upgradeHintEl.classList.add("visible");
     }
 
     const pwdBlock = document.getElementById("password-fields");
