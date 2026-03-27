@@ -1,0 +1,16 @@
+# ActAware — https://actaware.co.uk
+User-agent: *
+Allow: /
+
+# App / post-checkout / utility pages (not for organic search)
+Disallow: /dashboard.html
+Disallow: /account.html
+Disallow: /success.html
+Disallow: /contact-thanks.html
+Disallow: /reset-password.html
+Disallow: /trial-welcome.html
+
+# Netlify internals
+Disallow: /.netlify/
+
+Sitemap: https://actaware.co.uk/sitemap.xml
