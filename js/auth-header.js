@@ -59,6 +59,10 @@ function injectStyles() {
       #auth-status { margin-left: 8px; }
       .auth-menu-trigger { max-width: min(220px, 46vw); padding: 6px 8px; }
     }
+    @media (max-width: 400px) {
+      .auth-menu-trigger { max-width: min(160px, 42vw); gap: 6px; padding: 6px 8px; }
+      .auth-plan { font-size: 9px; padding: 2px 6px; }
+    }
   `;
   document.head.appendChild(el);
 }

@@ -1,0 +1,300 @@
+/**
+ * ActAware — shared mobile layout (hamburger nav, small-screen tweaks).
+ * Load after page-specific <style> blocks so these rules can override.
+ */
+
+/* ── Hamburger + collapsible nav (≤768px) ── */
+.actaware-nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  z-index: 160;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.actaware-nav-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.actaware-nav-toggle-bars {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  box-shadow: 0 -6px 0 currentColor, 0 6px 0 currentColor;
+}
+
+header.actaware-nav-open .actaware-nav-toggle {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+@media (max-width: 768px) {
+  header:has(nav.site-nav),
+  header:has(nav.dash-nav),
+  header.site-header:has(nav.site-nav) {
+    flex-wrap: wrap;
+    position: relative;
+    align-items: center;
+    gap: 8px;
+    row-gap: 0;
+  }
+
+  header:has(nav.site-nav) > a.logo,
+  header:has(nav.dash-nav) > a.logo,
+  header.site-header > a.logo {
+    order: 0;
+    flex-shrink: 0;
+  }
+
+  header:has(#auth-status) #auth-status {
+    order: 2;
+    margin-left: auto !important;
+  }
+
+  header:not(:has(#auth-status)) .actaware-nav-toggle {
+    order: 2;
+    margin-left: auto;
+  }
+
+  header:has(#auth-status) .actaware-nav-toggle {
+    order: 3;
+  }
+
+  header nav.site-nav,
+  header nav.dash-nav {
+    order: 10;
+    flex: none !important;
+    width: 100%;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0;
+    padding: 12px 0 16px;
+    margin-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  header.actaware-nav-open nav.site-nav,
+  header.actaware-nav-open nav.dash-nav {
+    display: flex;
+  }
+
+  header nav.site-nav a,
+  header nav.dash-nav a {
+    margin-left: 0 !important;
+    padding: 12px 4px;
+    font-size: 15px;
+    border-radius: 6px;
+  }
+
+  header nav.site-nav a:active,
+  header nav.dash-nav a:active {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .actaware-nav-toggle {
+    display: flex;
+  }
+}
+
+@media (min-width: 769px) {
+  header nav.site-nav,
+  header nav.dash-nav {
+    order: 1;
+  }
+
+  header:has(#auth-status) #auth-status {
+    order: 2;
+  }
+
+  .actaware-nav-toggle {
+    display: none !important;
+  }
+}
+
+/* ── Marketing home (index) — trust strip, hero CTAs, sample email ── */
+@media (max-width: 900px) {
+  .trust-strip {
+    gap: 20px 24px;
+    padding-left: 8px;
+    padding-right: 8px;
+    justify-content: center;
+  }
+
+  .trust-item {
+    flex: 1 1 140px;
+    justify-content: center;
+    text-align: left;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-cta-group {
+    flex-direction: column;
+    align-items: stretch;
+    margin-bottom: 48px;
+  }
+
+  .hero-cta-group .btn-hero,
+  .hero-cta-group .btn-hero-ghost {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .how-cta-wrap .btn-hero {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+
+  .sample-alert-section {
+    padding: 56px 16px !important;
+  }
+
+  .sample-alert-inner {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+
+.sample-email-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sample-email-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sample-deadline-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .sample-email-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    padding: 16px 18px !important;
+  }
+
+  .sample-deadline-bar {
+    flex-direction: column;
+    align-items: flex-start !important;
+    padding: 10px 18px !important;
+  }
+
+  .sample-email-body {
+    padding: 18px 16px !important;
+  }
+
+  .sample-email-footer {
+    flex-direction: column;
+    align-items: flex-start !important;
+    padding: 14px 18px !important;
+  }
+}
+
+/* ── Dashboard — narrow screens ── */
+@media (max-width: 640px) {
+  header.dash-header {
+    padding: 0 12px 0 16px;
+  }
+
+  .container {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .search-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-bar button {
+    width: 100%;
+  }
+
+  .pro-filters.visible {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .checklist-row-head {
+    flex-wrap: wrap;
+  }
+
+  .checklist-row-title {
+    min-width: 0 !important;
+  }
+
+  .weekly-recap-item .preview {
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .milestone-row {
+    flex-direction: column;
+  }
+
+  .milestone-date {
+    min-width: 0 !important;
+  }
+}
+
+/* ── Marketing home — comparison table stacks on narrow phones ── */
+@media (max-width: 520px) {
+  .comparison-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .comparison-cell:first-child {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border, #e8e5df);
+  }
+
+  .comparison-header.bad {
+    border-right: none !important;
+    border-bottom: 2px solid var(--border, #e8e5df);
+  }
+}
+
+/* ── Register / trial / account / contact — padding ── */
+@media (max-width: 480px) {
+  .wrap {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .wrap .card {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+}
