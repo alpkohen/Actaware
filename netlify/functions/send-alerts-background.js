@@ -1,7 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
 const { getResendFrom } = require("./lib/resend-from");
-const { getSiteUrl } = require("./lib/site-url");
+const { PRODUCTION_SITE_URL } = require("./lib/site-url");
 const { escapeHtml, safeHttpUrl, textToEmailHtml, formatSectorNoteForEmail } = require("./lib/html-escape");
 const {
   RSS_FEEDS,
@@ -479,7 +479,7 @@ function formatUKDate(d) {
 }
 
 function buildEmailHTML(greetingName, alertSections, dateLabel, sectorNoteHtml = "") {
-  const siteBase = getSiteUrl();
+  const manageSubUrl = PRODUCTION_SITE_URL;
   const sectorSafe = sectorNoteHtml ? formatSectorNoteForEmail(sectorNoteHtml) : "";
   const greeting = greetingName
     ? `Hi <strong>${escapeHtml(greetingName)}</strong>`
@@ -556,7 +556,7 @@ function buildEmailHTML(greetingName, alertSections, dateLabel, sectorNoteHtml =
             <td style="font-size:12px;color:#9ca3af;line-height:1.6;">
               You're receiving this because you subscribed to ActAware.<br>
               All information is sourced directly from official UK government sources.<br>
-              <a href="${escapeHtml(siteBase)}" style="color:#6366f1;text-decoration:none;">Manage subscription</a>
+              <a href="${escapeHtml(manageSubUrl)}" style="color:#6366f1;text-decoration:none;">Manage subscription</a>
             </td>
             <td align="right" style="font-size:11px;color:#d1d5db;white-space:nowrap;">
               actaware.co.uk
@@ -573,7 +573,7 @@ function buildEmailHTML(greetingName, alertSections, dateLabel, sectorNoteHtml =
 
 /** Short “all quiet” email when no employer-relevant items made the digest. */
 function buildQuietDayEmailHTML(greetingName, dateLabel) {
-  const siteBase = getSiteUrl();
+  const manageSubUrl = PRODUCTION_SITE_URL;
   const greeting = greetingName
     ? `Hi <strong>${escapeHtml(greetingName)}</strong>`
     : "Hi there";
@@ -608,7 +608,7 @@ function buildQuietDayEmailHTML(greetingName, dateLabel) {
       </td></tr>
       <tr><td style="background:#f8fafc;border-radius:0 0 12px 12px;padding:20px 32px;border-top:1px solid #e2e8f0;">
         <span style="font-size:12px;color:#9ca3af;">${dateLabel}</span>
-        <span style="float:right;font-size:12px;"><a href="${escapeHtml(siteBase)}" style="color:#6366f1;text-decoration:none;">Manage subscription</a></span>
+        <span style="float:right;font-size:12px;"><a href="${escapeHtml(manageSubUrl)}" style="color:#6366f1;text-decoration:none;">Manage subscription</a></span>
       </td></tr>
     </table>
   </td></tr>

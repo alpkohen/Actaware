@@ -139,7 +139,7 @@ Background fonksiyon ve diğer lambda’lar için tipik değişkenler:
 | `SUPABASE_SERVICE_KEY` | **Service role** (sunucu tarafı; RLS bypass — client’a vermeyin) |
 | `RESEND_API_KEY` | E-posta gönderimi |
 | `ANTHROPIC_API_KEY` | Özet üretimi |
-| `SITE_URL` | Checkout success / e-posta footer “Manage subscription” / dashboard linkleri. **Boşsa** kod `https://actaware.co.uk` kullanır (`lib/site-url.js`). Canlı domain farklıysa mutlaka ayarlayın. |
+| `SITE_URL` | Stripe dönüş URL’leri ve e-posta gövdesindeki site linkleri (`getSiteUrl`). **Sıra:** `SITE_URL` → Netlify `URL` → `DEPLOY_PRIME_URL`; hepsi `*.netlify.app` / boşsa → `https://actaware.co.uk`. Günlük e-postadaki **Manage subscription** ve haftalık **My alerts** linki doğrudan `https://actaware.co.uk`. Canlıda `SITE_URL=https://actaware.co.uk` önerilir. |
 | `STRIPE_SECRET_KEY` | Ödeme (checkout + webhook); test için `sk_test_...`, canlı için `sk_live_...` |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook doğrulama (endpoint’e özel `whsec_...`; test ve canlı ayrı) |
 | `STRIPE_PRICE_STARTER` | *(Opsiyonel)* Checkout’ta Starter plan Price ID; boşsa repo varsayılanı |

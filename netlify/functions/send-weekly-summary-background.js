@@ -5,7 +5,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
 const { getResendFrom } = require("./lib/resend-from");
-const { getSiteUrl } = require("./lib/site-url");
+const { PRODUCTION_SITE_URL } = require("./lib/site-url");
 const { escapeHtml } = require("./lib/html-escape");
 const { tryAcquireDigestLock } = require("./lib/digest-run-lock");
 const { runWithConcurrency } = require("./lib/run-with-concurrency");
@@ -228,7 +228,7 @@ exports.handler = async function () {
 <p style="margin:0 0 8px;font-size:15px;color:#374151;">Hi ${greetingName ? `<strong>${escapeHtml(greetingName)}</strong>` : "there"},</p>
 <p style="margin:0 0 16px;font-size:13px;color:#6b7280;">Week of ${escapeHtml(rangeLabel)} (UK)</p>
 ${textToEmailHtml(summaryText)}
-<p style="margin:20px 0 0;font-size:13px;color:#6b7280;"><a href="${escapeHtml(`${getSiteUrl()}/dashboard.html`)}" style="color:#6366f1;">Open My alerts</a> for your full archive and filters.</p>
+<p style="margin:20px 0 0;font-size:13px;color:#6b7280;"><a href="${escapeHtml(`${PRODUCTION_SITE_URL}/dashboard.html`)}" style="color:#6366f1;">Open My alerts</a> for your full archive and filters.</p>
 </td></tr>
 <tr><td style="background:#f8fafc;padding:16px 28px;border-radius:0 0 12px 12px;border-top:1px solid #e2e8f0;font-size:11px;color:#9ca3af;">Information only — not legal advice. Verify with official sources.</td></tr>
 </table>

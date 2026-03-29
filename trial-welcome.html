@@ -4,7 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <title>You’re in — ActAware trial</title>
+  <title>You're in — ActAware trial</title>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-1047619250"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'AW-1047619250');
+  </script>
+  <!-- Event snippet for Sign-up conversion -->
+  <script>
+    gtag('event', 'conversion', {
+      'send_to': 'AW-1047619250/xrJWCJKD-JAcELLNxfMD',
+      'value': 1.0,
+      'currency': 'GBP'
+    });
+  </script>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -110,10 +126,10 @@
   <div class="trial-top"><div id="auth-status"></div></div>
   <a href="/" class="logo">Act<span>Aware</span></a>
   <h1>Your trial is live</h1>
-  <p id="welcome-email-line">We’ve sent a <strong>welcome email</strong> to your inbox with next steps and links to your account and alerts. <strong>Check spam or promotions</strong> if you don’t see it within a few minutes.</p>
-  <p>You’ll get UK employer compliance briefings when our morning digest runs (<strong>08:00 UK time</strong>, same schedule as paying customers) — all <strong>17</strong> official sources.</p>
+  <p id="welcome-email-line">We've sent a <strong>welcome email</strong> to your inbox with next steps and links to your account and alerts. <strong>Check spam or promotions</strong> if you don't see it within a few minutes.</p>
+  <p>You'll get UK employer compliance briefings when our morning digest runs (<strong>08:00 UK time</strong>, same schedule as paying customers) — all <strong>17</strong> official sources.</p>
   <p id="until-line" class="until" style="display:none"></p>
-  <p>When you’re ready, pick a plan to continue after the trial.</p>
+  <p>When you're ready, pick a plan to continue after the trial.</p>
   <div class="actions">
     <a href="/#pricing" class="btn btn-primary">View plans</a>
     <a href="/" class="btn btn-ghost">Back to home</a>
@@ -125,7 +141,7 @@
       if (params.get('welcomeEmail') === '0') {
         var line = document.getElementById('welcome-email-line');
         if (line) {
-          line.innerHTML = 'We couldn’t send the welcome email automatically (often a mail provider block or a config issue on our side). <strong>Your trial is still active.</strong> Sign in to <a href="/dashboard.html" style="color:#C9922A;">My alerts</a> with the email and password you chose, or <a href="/contact.html" style="color:#C9922A;">contact us</a> and we’ll help.';
+          line.innerHTML = 'We couldn't send the welcome email automatically (often a mail provider block or a config issue on our side). <strong>Your trial is still active.</strong> Sign in to <a href="/dashboard.html" style="color:#C9922A;">My alerts</a> with the email and password you chose, or <a href="/contact.html" style="color:#C9922A;">contact us</a> and we'll help.';
         }
       }
       var until = params.get('until');
