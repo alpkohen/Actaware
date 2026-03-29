@@ -1,8 +1,10 @@
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
 const { getResendFrom } = require("./lib/resend-from");
-const { PRODUCTION_SITE_URL } = require("./lib/site-url");
 const { escapeHtml, safeHttpUrl, textToEmailHtml, formatSectorNoteForEmail } = require("./lib/html-escape");
+
+/** Production marketing site only — never from process.env (avoids Netlify URL / SITE_URL in footers). */
+const EMAIL_PUBLIC_SITE_ROOT = "https://actaware.co.uk";
 const {
   RSS_FEEDS,
   MONITORED_FEED_COUNT,
@@ -10,6 +12,7 @@ const {
   parseRSSItems,
   selectItemsInWindow,
 } = require("./lib/employer-feeds");
+const { MAX_ALERT_SUMMARY_CHARS } = require("./lib/sent-alert-limits");
 const { tryAcquireDigestLock } = require("./lib/digest-run-lock");
 const { digestGreetingDisplayName } = require("./lib/digest-greeting-name");
 const { runWithConcurrency } = require("./lib/run-with-concurrency");
@@ -479,7 +482,6 @@ function formatUKDate(d) {
 }
 
 function buildEmailHTML(greetingName, alertSections, dateLabel, sectorNoteHtml = "") {
-  const manageSubUrl = PRODUCTION_SITE_URL;
   const sectorSafe = sectorNoteHtml ? formatSectorNoteForEmail(sectorNoteHtml) : "";
   const greeting = greetingName
     ? `Hi <strong>${escapeHtml(greetingName)}</strong>`
@@ -556,7 +558,7 @@ function buildEmailHTML(greetingName, alertSections, dateLabel, sectorNoteHtml =
             <td style="font-size:12px;color:#9ca3af;line-height:1.6;">
               You're receiving this because you subscribed to ActAware.<br>
               All information is sourced directly from official UK government sources.<br>
-              <a href="${escapeHtml(manageSubUrl)}" style="color:#6366f1;text-decoration:none;">Manage subscription</a>
+              <a href="${EMAIL_PUBLIC_SITE_ROOT}" style="color:#6366f1;text-decoration:none;">Manage subscription</a>
             </td>
             <td align="right" style="font-size:11px;color:#d1d5db;white-space:nowrap;">
               actaware.co.uk
@@ -572,8 +574,38 @@ function buildEmailHTML(greetingName, alertSections, dateLabel, sectorNoteHtml =
 }
 
 /** Short “all quiet” email when no employer-relevant items made the digest. */
+function buildQuietDayEmailText(greetingName, dateLabel) {
+  const hi = greetingName ? `Hi ${greetingName}` : "Hi there";
+  return [
+    `${hi},`,
+    "",
+    `We scanned our ${MONITORED_FEED_COUNT} monitored official UK sources for items published in the last ~36 hours (covering "yesterday" across time zones). Nothing new surfaced that required an employer-facing compliance alert today.`,
+    "",
+    "Disclaimer: ActAware summarises official UK sources for information only — not legal advice.",
+    "",
+    `Manage subscription: ${EMAIL_PUBLIC_SITE_ROOT}`,
+    "",
+    dateLabel,
+    "",
+    "— ActAware",
+  ].join("\n");
+}
+
+function buildDigestEmailText(greetingName, dateLabel) {
+  const hi = greetingName ? `Hi ${greetingName}` : "Hi there";
+  return [
+    `${hi},`,
+    "",
+    `Here are today's UK employer compliance updates (${dateLabel}). Use the HTML version of this email for the full briefing.`,
+    "",
+    `My alerts: ${EMAIL_PUBLIC_SITE_ROOT}/dashboard.html`,
+    `Manage subscription (website): ${EMAIL_PUBLIC_SITE_ROOT}`,
+    "",
+    "— ActAware",
+  ].join("\n");
+}
+
 function buildQuietDayEmailHTML(greetingName, dateLabel) {
-  const manageSubUrl = PRODUCTION_SITE_URL;
   const greeting = greetingName
     ? `Hi <strong>${escapeHtml(greetingName)}</strong>`
     : "Hi there";
@@ -608,7 +640,7 @@ function buildQuietDayEmailHTML(greetingName, dateLabel) {
       </td></tr>
       <tr><td style="background:#f8fafc;border-radius:0 0 12px 12px;padding:20px 32px;border-top:1px solid #e2e8f0;">
         <span style="font-size:12px;color:#9ca3af;">${dateLabel}</span>
-        <span style="float:right;font-size:12px;"><a href="${escapeHtml(manageSubUrl)}" style="color:#6366f1;text-decoration:none;">Manage subscription</a></span>
+        <span style="float:right;font-size:12px;"><a href="${EMAIL_PUBLIC_SITE_ROOT}" style="color:#6366f1;text-decoration:none;">Manage subscription</a></span>
       </td></tr>
     </table>
   </td></tr>
@@ -670,7 +702,7 @@ async function upsertDigestSnapshot({
       run_id: runId,
       kind: isQuiet ? "quiet_day" : "digest",
       alert_title: title,
-      alert_summary: summary.slice(0, 120000),
+      alert_summary: summary.slice(0, MAX_ALERT_SUMMARY_CHARS),
       alert_source: sources,
       importance,
     },
@@ -830,12 +862,15 @@ exports.handler = async function () {
             return;
           }
         }
-        const html = buildQuietDayEmailHTML(digestGreetingDisplayName(sub.users), dateLabel);
+        const greet = digestGreetingDisplayName(sub.users);
+        const html = buildQuietDayEmailHTML(greet, dateLabel);
+        const text = buildQuietDayEmailText(greet, dateLabel);
         await resend.emails.send({
           from: getResendFrom(),
           to: sub.users.email,
           subject: `${mailTestPrefix}ActAware: All quiet — UK employer sources (${shortDate})`,
           html,
+          text,
           click_tracking: false,
           open_tracking: false,
         });
@@ -856,7 +891,10 @@ exports.handler = async function () {
           const { error: dbErr } = await supabase.from("sent_alerts").insert({
             user_id: sub.user_id,
             alert_title: `Daily UK Employer Compliance (${digestLabel}) — ${shortDate}`,
-            alert_summary: alertSections.map((s) => `[${s.source}] ${s.content}`).join("\n\n").substring(0, 500),
+            alert_summary: alertSections
+              .map((s) => `[${s.source}] ${s.content}`)
+              .join("\n\n")
+              .slice(0, MAX_ALERT_SUMMARY_CHARS),
             alert_source: alertSections.map((s) => s.source).join(", "),
             importance: alertSections.some((s) => s.priority === "critical") ? "critical" : "high",
           });
@@ -865,13 +903,16 @@ exports.handler = async function () {
             return;
           }
         }
-        const html = buildEmailHTML(digestGreetingDisplayName(sub.users), alertSections, dateLabel, sectorNoteHtml);
+        const greet = digestGreetingDisplayName(sub.users);
+        const html = buildEmailHTML(greet, alertSections, dateLabel, sectorNoteHtml);
+        const text = buildDigestEmailText(greet, dateLabel);
         const subjPro = pro ? " [Professional]" : "";
         await resend.emails.send({
           from: getResendFrom(),
           to: sub.users.email,
           subject: `${mailTestPrefix}UK Employer Compliance${subjPro} — ${shortDate}`,
           html,
+          text,
           click_tracking: false,
           open_tracking: false,
         });

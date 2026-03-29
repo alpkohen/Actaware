@@ -9,6 +9,7 @@ const Resend = require("resend").Resend;
 const { getResendFrom } = require("./lib/resend-from");
 const { escapeHtml, safeHttpUrl, textToEmailHtml } = require("./lib/html-escape");
 const { RSS_FEEDS, fetchRSS, parseRSSItems, selectItemsInWindow } = require("./lib/employer-feeds");
+const { MAX_ALERT_SUMMARY_CHARS } = require("./lib/sent-alert-limits");
 const { tryAcquireDigestLock } = require("./lib/digest-run-lock");
 const { runWithConcurrency } = require("./lib/run-with-concurrency");
 const { digestGreetingDisplayName } = require("./lib/digest-greeting-name");
@@ -226,6 +227,28 @@ function dedupeTitle(url, title) {
   return `CRITICAL-PULSE|${u}|${t}`;
 }
 
+/** Full text for My alerts (was truncated to 500 chars + title was machine key only). */
+function criticalCardToPlainSummary(card) {
+  const lines = [
+    `[critical-pulse — ${card.sourceName}]`,
+    "",
+    `Title: ${card.title || ""}`,
+  ];
+  if (card.published) lines.push("", `Published: ${card.published}`);
+  if (card.whatChanged) lines.push("", "What changed:", card.whatChanged);
+  if (card.actions?.length) {
+    lines.push("", "What employers must do:");
+    for (const a of card.actions) lines.push(`- ${a}`);
+  }
+  if (card.risk) lines.push("", `Risk if ignored: ${card.risk}`);
+  if (card.severityRationale) lines.push("", `Severity rationale: ${card.severityRationale}`);
+  if (card.governanceOwnership) lines.push("", `Governance & ownership: ${card.governanceOwnership}`);
+  if (card.suggestedTimeline) lines.push("", `Suggested timeline: ${card.suggestedTimeline}`);
+  if (card.crossChecks) lines.push("", `Cross-checks: ${card.crossChecks}`);
+  if (card.sourceUrl) lines.push("", `Source: ${card.sourceUrl}`);
+  return lines.join("\n");
+}
+
 exports.handler = async function () {
   if (process.env.CRITICAL_ALERTS_DISABLED === "true") {
     return {
@@ -361,20 +384,25 @@ exports.handler = async function () {
       if (toSend.length === 0) return;
 
       if (sub.user_id) {
-        const insertRows = toSend.map((card) => ({
-          user_id: sub.user_id,
-          alert_title: dedupeTitle(card.sourceUrl, card.title),
-          alert_summary: `[critical-pulse] ${card.title} ${card.sourceUrl}`.substring(0, 500),
-          alert_source: `critical-pulse — ${card.sourceName}`,
-          importance: "critical",
-        }));
-        const { error: dbErr } = await supabase.from("sent_alerts").insert(insertRows);
+        const insertRows = toSend.map((card) => {
+          const dedupeKey = dedupeTitle(card.sourceUrl, card.title);
+          return {
+            user_id: sub.user_id,
+            alert_title: (card.title || "ActAware CRITICAL alert").slice(0, 500),
+            alert_summary: criticalCardToPlainSummary(card).slice(0, MAX_ALERT_SUMMARY_CHARS),
+            alert_source: `critical-pulse — ${card.sourceName}`,
+            importance: "critical",
+            __dedupeKey: dedupeKey,
+          };
+        });
+        const payload = insertRows.map(({ __dedupeKey, ...row }) => row);
+        const { error: dbErr } = await supabase.from("sent_alerts").insert(payload);
         if (dbErr) {
           console.error(`Critical: sent_alerts insert failed for ${sub.users?.email}: ${dbErr.message}`);
           return;
         }
         for (const row of insertRows) {
-          sentSet.add(`${sub.user_id}|${row.alert_title}`);
+          sentSet.add(`${sub.user_id}|${row.__dedupeKey}`);
         }
       }
 
