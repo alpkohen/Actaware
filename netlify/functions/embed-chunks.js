@@ -108,10 +108,10 @@ function cors(event) {
 }
 
 exports.handler = async function (event) {
-  const h = cors(event);
+  const corsHeaders = cors(event);
   if (event.httpMethod === "OPTIONS") return preflight(event);
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers: h(), body: JSON.stringify({ error: "Method not allowed" }) };
+    return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
   const gate = assertEmbedAllowed(event);
@@ -209,7 +209,7 @@ exports.handler = async function (event) {
 
     return {
       statusCode: 200,
-      headers: h(),
+      headers: corsHeaders,
       body: JSON.stringify({
         ok: true,
         digestRows: rows.length,
@@ -223,7 +223,7 @@ exports.handler = async function (event) {
     console.error("embed-chunks:", err?.message || err);
     return {
       statusCode: 500,
-      headers: h(),
+      headers: corsHeaders,
       body: JSON.stringify({ error: err?.message || "Embed failed" }),
     };
   }
