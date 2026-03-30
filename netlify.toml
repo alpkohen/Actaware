@@ -22,7 +22,7 @@
   for = "/.netlify/functions/*"
   [headers.values]
     Access-Control-Allow-Methods = "GET, POST, PATCH, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Actaware-Test-Secret"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Actaware-Test-Secret, X-Actaware-Embed-Secret"
 
 [functions]
   node_bundler = "esbuild"
@@ -49,3 +49,9 @@
   schedule = "0 8 * * 1"
   timeout = 300
   included_files = ["data/golden_dataset.json"]
+
+[functions."ai-chat"]
+  timeout = 60
+
+[functions."embed-chunks"]
+  timeout = 120

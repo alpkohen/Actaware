@@ -48,7 +48,7 @@ function makeCorsHeaders(event, extra = {}) {
         }
       : {}),
     "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Actaware-Embed-Secret",
     ...extra,
   };
 }
