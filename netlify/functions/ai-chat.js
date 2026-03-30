@@ -106,16 +106,16 @@ async function callClaudeJson({ system, user }) {
 }
 
 exports.handler = async function (event) {
-  const h = cors(event);
+  const corsHeaders = cors(event);
 
   if (event.httpMethod === "OPTIONS") return preflight(event);
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers: h(), body: JSON.stringify({ error: "Method not allowed" }) };
+    return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
   const auth = await verifyBearerAuth(event);
   if (!auth.ok) {
-    return { statusCode: auth.status, headers: h(), body: JSON.stringify({ error: auth.message }) };
+    return { statusCode: auth.status, headers: corsHeaders, body: JSON.stringify({ error: auth.message }) };
   }
   const emailNorm = auth.email;
 
@@ -123,17 +123,17 @@ exports.handler = async function (event) {
   try {
     body = JSON.parse(event.body || "{}");
   } catch {
-    return { statusCode: 400, headers: h(), body: JSON.stringify({ error: "Invalid JSON" }) };
+    return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "Invalid JSON" }) };
   }
 
   const message = String(body.message || "").trim();
   if (!message) {
-    return { statusCode: 400, headers: h(), body: JSON.stringify({ error: "Message is required." }) };
+    return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "Message is required." }) };
   }
   if (message.length > MAX_MESSAGE_CHARS) {
     return {
       statusCode: 400,
-      headers: h(),
+      headers: corsHeaders,
       body: JSON.stringify({ error: `Message too long (max ${MAX_MESSAGE_CHARS} characters).` }),
     };
   }
@@ -147,7 +147,7 @@ exports.handler = async function (event) {
   if (!rl.allowed) {
     return {
       statusCode: 429,
-      headers: h(),
+      headers: corsHeaders,
       body: JSON.stringify({ error: "Too many requests. Please wait a minute and try again." }),
     };
   }
@@ -163,7 +163,7 @@ exports.handler = async function (event) {
     if (!userRow) {
       return {
         statusCode: 404,
-        headers: h(),
+        headers: corsHeaders,
         body: JSON.stringify({ error: "No account found for this session." }),
       };
     }
@@ -182,7 +182,7 @@ exports.handler = async function (event) {
     if (!canUseAiChat(plan, status)) {
       return {
         statusCode: 403,
-        headers: h(),
+        headers: corsHeaders,
         body: JSON.stringify({
           error: "AI Chat is available on the Professional plan.",
           code: "upgrade_required",
@@ -247,7 +247,7 @@ OUTPUT FORMAT — respond with ONLY valid JSON (no markdown fences), exactly one
       console.error("ai-chat Claude:", e?.message || e);
       return {
         statusCode: 500,
-        headers: h(),
+        headers: corsHeaders,
         body: JSON.stringify({ error: "Something went wrong. Please try again." }),
       };
     }
@@ -260,7 +260,7 @@ OUTPUT FORMAT — respond with ONLY valid JSON (no markdown fences), exactly one
 
     return {
       statusCode: 200,
-      headers: h(),
+      headers: corsHeaders,
       body: JSON.stringify({
         answer: payload.answer,
         sources: payload.sources || [],
@@ -271,7 +271,7 @@ OUTPUT FORMAT — respond with ONLY valid JSON (no markdown fences), exactly one
     console.error("ai-chat:", err?.message || err);
     return {
       statusCode: 500,
-      headers: h(),
+      headers: corsHeaders,
       body: JSON.stringify({ error: "Something went wrong. Please try again." }),
     };
   }
