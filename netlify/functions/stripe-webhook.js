@@ -4,6 +4,7 @@ const { Resend } = require("resend");
 const { getResendFrom } = require("./lib/resend-from");
 const { getSiteUrl } = require("./lib/site-url");
 const { getPlanPriceIds } = require("./lib/stripe-plan-prices");
+const { notifyAdminNewSignup } = require("./lib/admin-notify");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
@@ -128,6 +129,25 @@ exports.handler = async function (event) {
 
       console.log("User saved:", email, plan);
       await sendSubscriptionConfirmedEmail(String(email).trim().toLowerCase(), plan);
+
+      try {
+        const emailNorm = String(email).trim().toLowerCase();
+        const { data: profile } = await supabase
+          .from("users")
+          .select("first_name, last_name, company_name")
+          .eq("id", user.id)
+          .maybeSingle();
+        await notifyAdminNewSignup({
+          kind: "paid",
+          email: emailNorm,
+          plan,
+          firstName: profile?.first_name,
+          lastName: profile?.last_name,
+          companyName: profile?.company_name,
+        });
+      } catch (e) {
+        console.error("stripe-webhook admin notify:", e?.message || e);
+      }
     } catch (err) {
       console.error("DB error:", err.message);
       return { statusCode: 500, body: "Database error" };

@@ -6,6 +6,7 @@ const { ensureAuthUserWithPassword } = require("./lib/ensure-auth-user");
 const { getSiteUrl } = require("./lib/site-url");
 const { getClientIp } = require("./lib/client-ip");
 const { consumeRateLimit, envInt } = require("./lib/rate-limit");
+const { notifyAdminNewSignup } = require("./lib/admin-notify");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -333,6 +334,20 @@ exports.handler = async function (event) {
       trialDays: TRIAL_DAYS,
       trialEndsAt: trialEnds.toISOString(),
     });
+
+    try {
+      await notifyAdminNewSignup({
+        kind: "trial",
+        email: emailNorm,
+        plan: "trial",
+        firstName,
+        lastName,
+        companyName,
+        trialEndsAt: trialEnds.toISOString(),
+      });
+    } catch (e) {
+      console.error("register-trial admin notify:", e?.message || e);
+    }
 
     return {
       statusCode: 200,
