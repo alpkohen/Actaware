@@ -473,6 +473,20 @@
 
   const el = (id) => document.getElementById(id);
 
+  const PRICING_REDIRECT = "/index.html#pricing";
+
+  async function ensureProductAccess(accessToken) {
+    const res = await fetch("/.netlify/functions/account-profile", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.hasProductAccess === false) {
+      window.location.replace(PRICING_REDIRECT);
+      return false;
+    }
+    return true;
+  }
+
   function buildAlertsPayload() {
     const payload = {};
     const q = el("search-input").value.trim();
@@ -494,6 +508,10 @@
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 403 && data.redirectTo) {
+      window.location.replace(data.redirectTo);
+      throw new Error("REDIRECT");
+    }
     if (!res.ok) {
       console.warn("compliance:", data.error || res.status);
       return null;
@@ -505,8 +523,12 @@
     const res = await fetch("/.netlify/functions/dashboard-weekly-recaps", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (res.status === 403) return { recaps: [] };
     const data = await res.json().catch(() => ({}));
+    if (res.status === 403 && data.redirectTo) {
+      window.location.replace(data.redirectTo);
+      throw new Error("REDIRECT");
+    }
+    if (res.status === 403) return { recaps: [] };
     if (!res.ok) return { recaps: [] };
     return data;
   }
@@ -802,6 +824,10 @@ h1{font-size:22px;margin:0 0 8px;} .sub{color:#6b7280;font-size:14px;margin-bott
       body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 403 && data.redirectTo) {
+      window.location.replace(data.redirectTo);
+      throw new Error("REDIRECT");
+    }
     if (res.status === 401) {
       await supabase?.auth.signOut();
       throw new Error(data.error || "Session expired");
@@ -821,11 +847,21 @@ h1{font-size:22px;margin:0 0 8px;} .sub{color:#6b7280;font-size:14px;margin-bott
     }
     session = sess;
     const token = sess.access_token;
-    const [data, comp, weekly] = await Promise.all([
-      fetchAlerts(token, buildAlertsPayload()),
-      fetchCompliance(token),
-      fetchWeeklyRecaps(token),
-    ]);
+    const allowed = await ensureProductAccess(token);
+    if (!allowed) return;
+    let data;
+    let comp;
+    let weekly;
+    try {
+      [data, comp, weekly] = await Promise.all([
+        fetchAlerts(token, buildAlertsPayload()),
+        fetchCompliance(token),
+        fetchWeeklyRecaps(token),
+      ]);
+    } catch (e) {
+      if (e && e.message === "REDIRECT") return;
+      throw e;
+    }
     lastLoadedAuthUserId = uid || null;
     allAlerts = data.alerts || [];
     dashboardMeta = data.meta || {};
@@ -892,8 +928,12 @@ h1{font-size:22px;margin:0 0 8px;} .sub{color:#6b7280;font-size:14px;margin-bott
       try {
         await loadDashboard(initial);
       } catch (e) {
-        showLoginMsg(e.message || "Could not load alerts", false);
-        showLoginForm();
+        if (e && e.message === "REDIRECT") {
+          /* window navigation in progress */
+        } else {
+          showLoginMsg(e.message || "Could not load alerts", false);
+          showLoginForm();
+        }
       }
     } else {
       el("login-section").style.display = "block";
@@ -919,8 +959,12 @@ h1{font-size:22px;margin:0 0 8px;} .sub{color:#6b7280;font-size:14px;margin-bott
         try {
           await loadDashboard(sess);
         } catch (e) {
-          showLoginMsg(e.message || "Could not load alerts", false);
-          showLoginForm();
+          if (e && e.message === "REDIRECT") {
+            /* window navigation in progress */
+          } else {
+            showLoginMsg(e.message || "Could not load alerts", false);
+            showLoginForm();
+          }
         }
         setSessionChecking(false);
       }
@@ -1007,6 +1051,7 @@ h1{font-size:22px;margin:0 0 8px;} .sub{color:#6b7280;font-size:14px;margin-bott
         el("pro-filters")?.classList.toggle("visible", !!dashboardMeta.proFilters);
         renderAlerts(data.alerts || [], data.sharedBriefings || [], data.meta);
       } catch (e) {
+        if (e && e.message === "REDIRECT") return;
         el("alerts-list").innerHTML = `<div class='empty'>${escapeHtml(e.message)}</div>`;
       }
     }

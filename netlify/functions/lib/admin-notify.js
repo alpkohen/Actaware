@@ -44,7 +44,11 @@ async function notifyAdminNewSignup(p) {
   }
 
   const email = String(p.email || "").trim().toLowerCase();
-  const planLabel = formatPlanLabel(p.plan);
+  const trialDays = Math.max(1, Math.min(90, parseInt(process.env.TRIAL_DAYS || "14", 10) || 14));
+  const planLabel =
+    p.kind === "trial" && String(p.plan || "").toLowerCase() === "professional"
+      ? `Professional (${trialDays}-day trial)`
+      : formatPlanLabel(p.plan);
   const subject =
     p.kind === "trial"
       ? `[ActAware] New trial — ${email}`

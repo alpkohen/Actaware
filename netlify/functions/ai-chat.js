@@ -10,6 +10,7 @@ const {
   DEFAULT_DISCLAIMER,
 } = require("./lib/ai-chat-helpers");
 const { formatMilestonesForPrompt } = require("./lib/compliance-milestones");
+const { hasProductAccess, hasProTierFeatures } = require("./lib/subscription-access");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -22,12 +23,6 @@ const RECENT_ALERT_DAYS = 30;
 
 function cors(event, extra = {}) {
   return makeCorsHeaders(event, { "Content-Type": "application/json", ...extra });
-}
-
-function canUseAiChat(plan, status) {
-  if (String(status || "").toLowerCase() !== "active") return false;
-  const p = String(plan || "").toLowerCase();
-  return p === "professional" || p === "agency";
 }
 
 function formatAlertDate(iso) {
@@ -171,7 +166,7 @@ exports.handler = async function (event) {
 
     const { data: subRow, error: sErr } = await supabaseAdmin
       .from("subscriptions")
-      .select("plan, status")
+      .select("plan, status, trial_ends_at, stripe_subscription_id")
       .eq("user_id", userRow.id)
       .maybeSingle();
 
@@ -180,7 +175,19 @@ exports.handler = async function (event) {
     const plan = subRow?.plan || "starter";
     const status = subRow?.status || "inactive";
 
-    if (!canUseAiChat(plan, status)) {
+    if (!hasProductAccess(subRow)) {
+      return {
+        statusCode: 403,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          error: "Your trial or subscription is no longer active. Choose a plan to continue.",
+          code: "no_product_access",
+          redirectTo: "/index.html#pricing",
+        }),
+      };
+    }
+
+    if (!hasProTierFeatures(subRow)) {
       return {
         statusCode: 403,
         headers: corsHeaders,

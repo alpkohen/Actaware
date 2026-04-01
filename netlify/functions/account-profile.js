@@ -1,6 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
 const { getAuthEmailFromEvent } = require("./lib/verify-token");
+const { hasProductAccess } = require("./lib/subscription-access");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -22,6 +23,16 @@ function planLabel(plan) {
   if (p === "professional") return "Professional";
   if (p === "agency") return "Agency";
   return "Member";
+}
+
+function displayPlanLabel(subRow) {
+  const plan = subRow?.plan || "starter";
+  const p = String(plan).toLowerCase();
+  if (p === "trial") return "Trial";
+  const stripe = subRow?.stripe_subscription_id && String(subRow.stripe_subscription_id).trim();
+  const trialEnd = subRow?.trial_ends_at ? new Date(subRow.trial_ends_at).getTime() : 0;
+  if (p === "professional" && !stripe && trialEnd > Date.now()) return "Professional (trial)";
+  return planLabel(plan);
 }
 
 function cors(event) {
@@ -84,6 +95,7 @@ exports.handler = async function (event) {
 
       const stripeCustomerId = subRow?.stripe_customer_id || null;
       const canBillingPortal = !!(stripeCustomerId && process.env.STRIPE_SECRET_KEY);
+      const productAccess = hasProductAccess(subRow);
 
       return {
         statusCode: 200,
@@ -100,7 +112,8 @@ exports.handler = async function (event) {
           phone: userRow.phone || "",
           notes: userRow.signup_notes || "",
           plan,
-          planLabel: planLabel(plan),
+          planLabel: displayPlanLabel(subRow),
+          hasProductAccess: productAccess,
           subscriptionStatus: subRow?.status || "inactive",
           trialEndsAt: subRow?.trial_ends_at || null,
           stripeCustomerId,

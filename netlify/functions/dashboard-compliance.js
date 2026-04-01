@@ -6,6 +6,7 @@ const { makeCorsHeaders, preflight } = require("./lib/cors");
 const { buildCalendarPayload } = require("./lib/calendar-export");
 const { COMPLIANCE_MILESTONES } = require("./lib/compliance-milestones");
 const { getAuthEmailFromEvent } = require("./lib/verify-token");
+const { hasProductAccess, hasProTierFeatures } = require("./lib/subscription-access");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -55,11 +56,6 @@ const CHECKLIST_ITEMS = [
   },
 ];
 
-function proPlan(plan, status) {
-  if (status !== "active") return false;
-  return plan === "professional" || plan === "agency";
-}
-
 exports.handler = async function (event) {
   const h = (extra = {}) => makeCorsHeaders(event, { "Content-Type": "application/json", ...extra });
 
@@ -93,14 +89,26 @@ exports.handler = async function (event) {
 
     const { data: subRow, error: sErr } = await supabaseAdmin
       .from("subscriptions")
-      .select("plan, status")
+      .select("plan, status, trial_ends_at, stripe_subscription_id")
       .eq("user_id", userRow.id)
       .maybeSingle();
     if (sErr) throw sErr;
 
+    if (!hasProductAccess(subRow)) {
+      return {
+        statusCode: 403,
+        headers: h(),
+        body: JSON.stringify({
+          error: "Your trial or subscription is no longer active. Choose a plan to continue.",
+          code: "no_product_access",
+          redirectTo: "/index.html#pricing",
+        }),
+      };
+    }
+
     const plan = subRow?.plan || "starter";
     const status = subRow?.status || "inactive";
-    const canUseProTools = proPlan(plan, status);
+    const canUseProTools = hasProTierFeatures(subRow);
 
     if (event.httpMethod === "GET") {
       const milestones = COMPLIANCE_MILESTONES.map((m) => ({

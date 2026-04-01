@@ -89,6 +89,8 @@ Write exactly 3 bullet points in plain text only. Each line must start with "- "
   return `<ul style="margin:0;padding-left:20px;">${items}</ul>`;
 }
 
+const { hasProductAccess } = require("./lib/subscription-access");
+
 const PLAN_RANK = { agency: 4, professional: 3, starter: 2, trial: 1 };
 
 async function getActiveUsers() {
@@ -100,13 +102,7 @@ async function getActiveUsers() {
     .eq("status", "active");
   if (error) throw error;
   const rows = data || [];
-  const now = Date.now();
-  const eligible = rows.filter((row) => {
-    if (row.plan === "trial") {
-      return row.trial_ends_at && new Date(row.trial_ends_at).getTime() > now;
-    }
-    return true;
-  });
+  const eligible = rows.filter((row) => hasProductAccess(row));
   // One row per user — prefer paid plan over trial if duplicates ever exist
   const byUser = new Map();
   for (const row of eligible) {

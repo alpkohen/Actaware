@@ -300,6 +300,10 @@
           return;
         }
         profile = data;
+        if (profile.hasProductAccess === false) {
+          window.location.replace("/index.html#pricing");
+          return;
+        }
       } catch (e) {
         console.error(e);
         gateP.textContent = "Network error while loading your account. Check your connection and try again.";
@@ -313,7 +317,13 @@
       document.getElementById("plan-status").textContent = `Status: ${profile.subscriptionStatus || "—"}`;
 
       const trialLine = document.getElementById("trial-line");
-      if (profile.plan === "trial" && profile.trialEndsAt) {
+      const isLegacyTrial = profile.plan === "trial";
+      const isProTrial =
+        profile.plan === "professional" &&
+        !profile.stripeSubscriptionId &&
+        profile.trialEndsAt &&
+        new Date(profile.trialEndsAt) > new Date();
+      if ((isLegacyTrial || isProTrial) && profile.trialEndsAt) {
         const d = new Date(profile.trialEndsAt);
         trialLine.textContent = `Trial ends: ${d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" })} (London)`;
         trialLine.style.display = "block";
@@ -330,6 +340,10 @@
         parts.push(
           `<a class="btn btn-primary" href="register.html?plan=starter&upgrade=1">Upgrade to Starter</a>`,
           `<a class="btn btn-secondary" href="register.html?plan=professional&upgrade=1">Upgrade to Professional</a>`
+        );
+      } else if (isProTrial) {
+        parts.push(
+          `<a class="btn btn-primary" href="register.html?plan=professional&upgrade=1">Subscribe to Professional</a>`
         );
       } else if (profile.plan === "starter") {
         parts.push(`<a class="btn btn-secondary" href="register.html?plan=professional&upgrade=1">Upgrade to Professional</a>`);

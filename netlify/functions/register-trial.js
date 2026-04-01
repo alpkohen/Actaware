@@ -260,24 +260,33 @@ exports.handler = async function (event) {
         .eq("user_id", existingUser.id)
         .maybeSingle();
 
-      if (subRow?.status === "active" && subRow.plan && subRow.plan !== "trial") {
+      const stripeId = subRow?.stripe_subscription_id && String(subRow.stripe_subscription_id).trim();
+      if (subRow?.status === "active" && stripeId) {
         return {
           statusCode: 409,
           headers: corsHeaders(),
           body: JSON.stringify({ error: "This email already has an active subscription." }),
         };
       }
-      if (
-        subRow?.plan === "trial" &&
+      const trialActive =
+        subRow?.status === "active" &&
         subRow.trial_ends_at &&
-        new Date(subRow.trial_ends_at) > now &&
-        subRow.status === "active"
-      ) {
-        return {
-          statusCode: 409,
-          headers: corsHeaders(),
-          body: JSON.stringify({ error: "You already have an active free trial on this email." }),
-        };
+        new Date(subRow.trial_ends_at) > now;
+      if (trialActive) {
+        if (subRow.plan === "trial") {
+          return {
+            statusCode: 409,
+            headers: corsHeaders(),
+            body: JSON.stringify({ error: "You already have an active free trial on this email." }),
+          };
+        }
+        if (subRow.plan === "professional" && !stripeId) {
+          return {
+            statusCode: 409,
+            headers: corsHeaders(),
+            body: JSON.stringify({ error: "You already have an active free trial on this email." }),
+          };
+        }
       }
     }
 
@@ -312,12 +321,12 @@ exports.handler = async function (event) {
 
     const subPayload = {
       user_id: userId,
-      plan: "trial",
+      plan: "professional",
       status: "active",
       trial_ends_at: trialEnds.toISOString(),
       stripe_customer_id: null,
       stripe_subscription_id: null,
-      seat_limit: 1,
+      seat_limit: 3,
     };
 
     if (existingSub) {
@@ -339,7 +348,7 @@ exports.handler = async function (event) {
       await notifyAdminNewSignup({
         kind: "trial",
         email: emailNorm,
-        plan: "trial",
+        plan: "professional",
         firstName,
         lastName,
         companyName,

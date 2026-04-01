@@ -1,6 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
 const { verifyBearerAuth } = require("./lib/verify-token");
+const { hasProductAccess, hasProTierFeatures } = require("./lib/subscription-access");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -19,11 +20,6 @@ function getLondonDateString(d = new Date()) {
     month: "2-digit",
     day: "2-digit",
   }).format(d);
-}
-
-function fullArchiveEligible(plan, status) {
-  if (status !== "active") return false;
-  return plan === "professional" || plan === "agency";
 }
 
 /** How many digest_snapshots rows exist in the same window as the dashboard fallback (for empty-state copy). */
@@ -134,17 +130,28 @@ exports.handler = async function (event) {
 
     const { data: subRow, error: subErr } = await supabaseAdmin
       .from("subscriptions")
-      .select("plan, status")
+      .select("plan, status, trial_ends_at, stripe_subscription_id")
       .eq("user_id", dbUser.id)
       .maybeSingle();
 
     if (subErr) throw subErr;
 
+    if (!hasProductAccess(subRow)) {
+      return {
+        statusCode: 403,
+        headers: h({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          error: "Your trial or subscription is no longer active. Choose a plan to continue.",
+          code: "no_product_access",
+          redirectTo: "/index.html#pricing",
+        }),
+      };
+    }
+
     const plan = subRow?.plan || "starter";
     const status = subRow?.status || "inactive";
-    const unlimited = fullArchiveEligible(plan, status);
-    const proTools =
-      status === "active" && (plan === "professional" || plan === "agency");
+    const unlimited = hasProTierFeatures(subRow);
+    const proTools = hasProTierFeatures(subRow);
 
     const useAdvancedFilters =
       proTools &&

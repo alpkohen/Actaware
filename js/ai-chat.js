@@ -238,6 +238,10 @@ export function initActAwareAIChat(opts) {
       const data = await res.json().catch(() => ({}));
       removeTyping(tid);
 
+      if (res.status === 403 && data.code === "no_product_access" && data.redirectTo) {
+        window.location.replace(data.redirectTo);
+        return;
+      }
       if (res.status === 403 && data.code === "upgrade_required") {
         upgradeModal.hidden = false;
         return;

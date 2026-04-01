@@ -17,6 +17,8 @@ const { digestGreetingDisplayName } = require("./lib/digest-greeting-name");
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const { hasProTierFeatures } = require("./lib/subscription-access");
+
 const PLAN_RANK = { agency: 4, professional: 3, starter: 2, trial: 1 };
 
 async function getProAgencyUsers() {
@@ -36,7 +38,7 @@ async function getProAgencyUsers() {
     const pr = prev ? PLAN_RANK[prev.plan] || 0 : -1;
     if (!prev || r > pr) byUser.set(row.user_id, row);
   }
-  return [...byUser.values()].filter((r) => r.plan === "professional" || r.plan === "agency");
+  return [...byUser.values()].filter((r) => hasProTierFeatures(r));
 }
 
 async function summariseCriticalOnly(items, sourceName) {

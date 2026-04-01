@@ -5,11 +5,13 @@
 const { createClient } = require("@supabase/supabase-js");
 const Resend = require("resend").Resend;
 const { getResendFrom } = require("./lib/resend-from");
-const { PRODUCTION_SITE_URL } = require("./lib/site-url");
+/** Same as digest emails — never use Netlify deploy URL for customer links. */
+const EMAIL_PUBLIC_SITE_ROOT = "https://actaware.co.uk";
 const { escapeHtml } = require("./lib/html-escape");
 const { tryAcquireDigestLock } = require("./lib/digest-run-lock");
 const { runWithConcurrency } = require("./lib/run-with-concurrency");
 const { digestGreetingDisplayName } = require("./lib/digest-greeting-name");
+const { hasProTierFeatures } = require("./lib/subscription-access");
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -114,7 +116,7 @@ exports.handler = async function () {
 
   const { data: subs, error: subErr } = await supabase
     .from("subscriptions")
-    .select("user_id, plan, users(email, company_name, industry, first_name, last_name)")
+    .select("user_id, plan, trial_ends_at, stripe_subscription_id, users(email, company_name, industry, first_name, last_name)")
     .eq("status", "active")
     .in("plan", ["professional", "agency"]);
   if (subErr) {
@@ -125,7 +127,7 @@ exports.handler = async function () {
     };
   }
 
-  const rows = subs || [];
+  const rows = (subs || []).filter((r) => hasProTierFeatures(r));
   const testEmailOnly = process.env.TEST_EMAIL_ONLY?.trim();
   let targets = rows;
   if (testEmailOnly) {
@@ -228,7 +230,7 @@ exports.handler = async function () {
 <p style="margin:0 0 8px;font-size:15px;color:#374151;">Hi ${greetingName ? `<strong>${escapeHtml(greetingName)}</strong>` : "there"},</p>
 <p style="margin:0 0 16px;font-size:13px;color:#6b7280;">Week of ${escapeHtml(rangeLabel)} (UK)</p>
 ${textToEmailHtml(summaryText)}
-<p style="margin:20px 0 0;font-size:13px;color:#6b7280;"><a href="${escapeHtml(`${PRODUCTION_SITE_URL}/dashboard.html`)}" style="color:#6366f1;">Open My alerts</a> for your full archive and filters.</p>
+<p style="margin:20px 0 0;font-size:13px;color:#6b7280;"><a href="${EMAIL_PUBLIC_SITE_ROOT}/dashboard.html" style="color:#6366f1;">Open My alerts</a> for your full archive and filters.</p>
 </td></tr>
 <tr><td style="background:#f8fafc;padding:16px 28px;border-radius:0 0 12px 12px;border-top:1px solid #e2e8f0;font-size:11px;color:#9ca3af;">Information only — not legal advice. Verify with official sources.</td></tr>
 </table>
