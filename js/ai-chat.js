@@ -182,8 +182,14 @@ export function initActAwareAIChat(opts) {
     }
   });
 
-  root.querySelector("#ai-chat-close").addEventListener("click", () => {
+  function closeChatPanel() {
     panel.hidden = true;
+  }
+
+  root.querySelector("#ai-chat-close")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeChatPanel();
   });
 
   root.querySelector("[data-ai-close-upgrade]")?.addEventListener("click", () => {
@@ -194,7 +200,12 @@ export function initActAwareAIChat(opts) {
   });
 
   document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape" && !upgradeModal.hidden) upgradeModal.hidden = true;
+    if (ev.key !== "Escape") return;
+    if (!upgradeModal.hidden) {
+      upgradeModal.hidden = true;
+      return;
+    }
+    if (!panel.hidden) closeChatPanel();
   });
 
   form.addEventListener("submit", async (ev) => {

@@ -231,6 +231,10 @@
     }
     .ai-chat-fab:hover { opacity: 0.94; }
     .ai-chat-fab-icon { font-size: 18px; line-height: 1; }
+    /* [hidden] must win over display:flex — otherwise the close control appears broken */
+    .ai-chat-panel[hidden] {
+      display: none !important;
+    }
     .ai-chat-panel {
       position: fixed; right: 16px; bottom: 88px; z-index: 181;
       box-sizing: border-box;
@@ -257,10 +261,13 @@
       padding: 2px 7px; border-radius: 4px; font-family: 'DM Sans', sans-serif;
     }
     .ai-chat-close {
+      position: relative;
+      z-index: 2;
       background: transparent; border: none; color: rgba(255,255,255,0.85); font-size: 22px; line-height: 1;
-      cursor: pointer; padding: 4px 8px; border-radius: 6px;
+      cursor: pointer; padding: 8px 12px; margin: -4px -8px -4px 0; border-radius: 6px;
+      flex-shrink: 0;
     }
-    .ai-chat-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .ai-chat-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
     .ai-chat-messages {
       flex: 1;
       min-height: 0;
