@@ -11,6 +11,28 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+/** Turn http(s) URLs in plain text into safe clickable links (rest stays escaped). */
+function linkifyPlainText(s) {
+  const str = String(s);
+  const parts = str.split(/(https?:\/\/[^\s<]+)/gi);
+  return parts
+    .map((part) => {
+      if (!part) return "";
+      if (/^https?:\/\//i.test(part)) {
+        try {
+          const u = new URL(part);
+          if (u.protocol !== "http:" && u.protocol !== "https:") return escapeHtml(part);
+          const href = u.href;
+          return `<a href="${escapeHtml(href)}" class="ai-chat-source-link" target="_blank" rel="noopener noreferrer">${escapeHtml(part)}</a>`;
+        } catch {
+          return escapeHtml(part);
+        }
+      }
+      return escapeHtml(part);
+    })
+    .join("");
+}
+
 function canOpenChat(meta) {
   const plan = String(meta?.plan || "").toLowerCase();
   const status = String(meta?.subscriptionStatus || meta?.status || "").toLowerCase();
@@ -32,13 +54,13 @@ export function initActAwareAIChat(opts) {
   document.body.appendChild(root);
 
   root.innerHTML = `
-    <button type="button" id="ai-chat-fab" class="ai-chat-fab" aria-label="Open compliance assistant" hidden>
+    <button type="button" id="ai-chat-fab" class="ai-chat-fab" aria-label="Open compliance assistant (BETA)" hidden>
       <span class="ai-chat-fab-icon" aria-hidden="true">💬</span>
       <span class="ai-chat-fab-text">Ask ActAware</span>
     </button>
     <div id="ai-chat-panel" class="ai-chat-panel" hidden role="dialog" aria-modal="true" aria-labelledby="ai-chat-heading">
       <div class="ai-chat-panel-header">
-        <h2 id="ai-chat-heading" class="ai-chat-title">Compliance assistant</h2>
+        <h2 id="ai-chat-heading" class="ai-chat-title">Compliance assistant <span class="ai-chat-beta" translate="no">BETA</span></h2>
         <button type="button" class="ai-chat-close" id="ai-chat-close" aria-label="Close">×</button>
       </div>
       <div id="ai-chat-messages" class="ai-chat-messages"></div>
@@ -95,12 +117,17 @@ export function initActAwareAIChat(opts) {
     wrap.className = "ai-chat-bubble ai-chat-bubble-assistant";
     const body = document.createElement("div");
     body.className = "ai-chat-answer";
-    body.innerHTML = escapeHtml(answer).replace(/\n/g, "<br>");
+    body.innerHTML = answer
+      .split("\n")
+      .map((line) => linkifyPlainText(line))
+      .join("<br>");
     wrap.appendChild(body);
     if (sources?.length) {
       const src = document.createElement("p");
       src.className = "ai-chat-sources";
-      src.textContent = `Sources: ${sources.join(" · ")}`;
+      src.innerHTML =
+        '<span class="ai-chat-sources-label">Sources:</span> ' +
+        sources.map((s) => linkifyPlainText(s)).join(' <span class="ai-chat-src-sep" aria-hidden="true">·</span> ');
       wrap.appendChild(src);
     }
     if (disclaimer) {
