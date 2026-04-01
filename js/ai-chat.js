@@ -68,7 +68,7 @@ export function initActAwareAIChat(opts) {
         <textarea id="ai-chat-input" rows="2" maxlength="4000" placeholder="Ask about UK employer compliance…" autocomplete="off"></textarea>
         <button type="submit" class="ai-chat-send" id="ai-chat-send">Send</button>
       </form>
-      <p class="ai-chat-footnote">Professional feature · Information only</p>
+      <p class="ai-chat-footnote">Professional feature · Drag the corner to resize · Information only</p>
     </div>
     <div id="ai-chat-upgrade-modal" class="dash-modal" hidden>
       <div class="dash-modal-backdrop" data-ai-close-upgrade></div>
