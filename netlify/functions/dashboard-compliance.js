@@ -4,50 +4,13 @@
 const { createClient } = require("@supabase/supabase-js");
 const { makeCorsHeaders, preflight } = require("./lib/cors");
 const { buildCalendarPayload } = require("./lib/calendar-export");
+const { COMPLIANCE_MILESTONES } = require("./lib/compliance-milestones");
 const { getAuthEmailFromEvent } = require("./lib/verify-token");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
-
-const COMPLIANCE_MILESTONES = [
-  {
-    id: "era-p1",
-    date: "2026-04-06",
-    title: "Employment Rights Act 2025 — Phase 1 in force",
-    detail: "Day-one rights, paternity, flexible working request changes, and more — confirm policies and contracts.",
-    urgency: "critical",
-  },
-  {
-    id: "era-p2-jul",
-    date: "2026-07-01",
-    title: "ERA 2025 — further measures (e.g. flexible working / zero-hours)",
-    detail: "Track DBT / GOV.UK for exact commencement — plan handbook and roster updates.",
-    urgency: "high",
-  },
-  {
-    id: "era-p3-2027",
-    date: "2027-01-01",
-    title: "Unfair dismissal qualifying period & cap changes",
-    detail: "Review dismissal procedures and insurance / legal cover.",
-    urgency: "high",
-  },
-  {
-    id: "fwa",
-    date: "2026-01-01",
-    title: "Fair Work Agency — monitor enforcement",
-    detail: "Subscribe to digests; ensure payroll and NMW records audit-ready.",
-    urgency: "medium",
-  },
-  {
-    id: "nlw-review",
-    date: "2026-04-01",
-    title: "National Living Wage / NMW — annual uprating",
-    detail: "Check HMRC and DBT each April; update pay rates and posters.",
-    urgency: "high",
-  },
-];
 
 const CHECKLIST_ITEMS = [
   {

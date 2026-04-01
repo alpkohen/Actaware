@@ -9,6 +9,7 @@ const {
   normalizeChatPayload,
   DEFAULT_DISCLAIMER,
 } = require("./lib/ai-chat-helpers");
+const { formatMilestonesForPrompt } = require("./lib/compliance-milestones");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -219,23 +220,26 @@ USER CONTEXT:
 - Company size: ${userRow.company_size || "Not specified"}
 - Plan: ${plan}
 
-RECENT ALERTS THIS USER RECEIVED:
-${recentAlerts.length ? recentAlerts.map((a) => `- ${a.title} (${a.date})`).join("\n") : "- (none in the last ${RECENT_ALERT_DAYS} days)"}
+ACTAWARE COMPLIANCE CALENDAR (same milestones as the user's dashboard — use for dates and high-level themes):
+${formatMilestonesForPrompt()}
 
-RELEVANT COMPLIANCE KNOWLEDGE:
-${chunks.length ? chunks.map((c) => `[${c.source_name}]: ${c.content}`).join("\n\n") : "- (no matching knowledge base chunks — answer from general UK employer compliance principles only, and say sources are limited)"}
+RECENT ALERTS THIS USER RECEIVED (email digest titles, last ${RECENT_ALERT_DAYS} days):
+${recentAlerts.length ? recentAlerts.map((a) => `- ${a.title} (${a.date})`).join("\n") : "- (none in this window)"}
+
+RELEVANT KNOWLEDGE BASE EXCERPTS (daily briefing chunks — may be empty or partial):
+${chunks.length ? chunks.map((c) => `[${c.source_name}]: ${c.content}`).join("\n\n") : "- (no text chunks matched this query — still use ACTAWARE COMPLIANCE CALENDAR above and general UK employer guidance)"}
 
 RULES:
 1. Only answer questions about UK employer compliance.
 2. If asked anything outside this scope, say: "I can only help with UK employer compliance topics."
-3. Always cite which source your answer is based on (use the [bracket] names from RELEVANT COMPLIANCE KNOWLEDGE when applicable).
-4. If you don't know, say: "I don't have enough information on this — please check the official source directly."
+3. Cite sources: name ActAware calendar milestones, knowledge excerpts [bracket names], or standard references (Acas, GOV.UK, HSE) as appropriate.
+4. Do not default to "I don't know" when ACTAWARE COMPLIANCE CALENDAR or the excerpts above are relevant — give a concise, accurate summary from that context, then suggest official sites (e.g. https://www.gov.uk/, https://www.acas.org.uk/) for full detail. Only say you lack detail when neither calendar, excerpts, nor reliable general UK employment principles apply.
 5. Never give legal advice. End every answer with: "${DEFAULT_DISCLAIMER}"
 6. Be specific to the user's sector and company size when context is available.
-7. Do not hallucinate legislation, dates, or penalties. If uncertain, say so.
+7. Do not invent specific statutory text, tribunal outcomes, or penalty amounts not implied by the context above; where detail is missing, point to official sources.
 
 OUTPUT FORMAT — respond with ONLY valid JSON (no markdown fences), exactly one object:
-{"answer":"your reply as plain text (must end with the exact disclaimer sentence in RULE 5)","sources":["short source labels you relied on, e.g. HMRC Employer"],"disclaimer":"${DEFAULT_DISCLAIMER}"}
+{"answer":"your reply as plain text (must end with the exact disclaimer sentence in RULE 5)","sources":["short source labels you relied on, e.g. ActAware calendar, GOV.UK"],"disclaimer":"${DEFAULT_DISCLAIMER}"}
 `.trim();
 
     const userPrompt = `User question:\n${message}`;
